@@ -1,0 +1,32 @@
+[
+  {
+    "name": "OpenAI",
+    "channel_type": 0,
+    "base_url": "https://api.openai.com/v1"
+  },
+  {
+    "name": "OpenAI Response",
+    "channel_type": 1,
+    "base_url": "https://api.openai.com/v1"
+  },
+  {
+    "name": "Anthropic",
+    "channel_type": 2,
+    "base_url": "https://api.anthropic.com/v1"
+  },
+  {
+    "name": "Gemini",
+    "channel_type": 3,
+    "base_url": "https://generativelanguage.googleapis.com/v1beta"
+  },
+  {
+    "name": "Volcengine",
+    "channel_type": 4,
+    "base_url": "https://ark.cn-beijing.volces.com/api/v3"
+  },
+  {
+    "name": "OpenAI Embedding",
+    "channel_type": 5,
+    "base_url": "https://api.openai.com/v1"
+  }
+]

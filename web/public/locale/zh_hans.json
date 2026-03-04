@@ -421,6 +421,10 @@
                 "edit": "编辑渠道",
                 "view": "渠道详情"
             },
+            "tabs": {
+                "stats": "统计",
+                "models": "模型"
+            },
             "sections": {
                 "requests": "请求详情",
                 "tokens": "Token 使用",
@@ -501,6 +505,18 @@
             "matchRegex": "匹配正则",
             "matchRegexPlaceholder": "可选：用于匹配请求模型名称的正则表达式",
             "remark": "备注"
+        },
+        "models": {
+            "selectAll": "全选",
+            "deselectAll": "取消全选",
+            "test": "测试",
+            "testSelected": "测试所选",
+            "testing": "测试中...",
+            "testPassed": "通过",
+            "testFailed": "失败",
+            "noModels": "暂无模型",
+            "selectedCount": "已选 {{count}} 个",
+            "testSummary": "测试完成：共 {{total}} 个模型，通过 {{passed}} 个"
         }
     }
 }

@@ -14,6 +14,8 @@ import (
 	"github.com/bestruirui/octopus/internal/server/resp"
 	"github.com/bestruirui/octopus/internal/server/router"
 	"github.com/bestruirui/octopus/internal/task"
+	transformerModel "github.com/bestruirui/octopus/internal/transformer/model"
+	transformerOutbound "github.com/bestruirui/octopus/internal/transformer/outbound"
 	"github.com/gin-gonic/gin"
 )
 
@@ -54,6 +56,10 @@ func init() {
 		AddRoute(
 			router.NewRoute("/last-sync-time", http.MethodGet).
 				Handle(getLastSyncTime),
+		).
+		AddRoute(
+			router.NewRoute("/test-models", http.MethodPost).
+				Handle(testChannelModels),
 		)
 }
 
@@ -170,4 +176,122 @@ func syncChannel(c *gin.Context) {
 func getLastSyncTime(c *gin.Context) {
 	time := task.GetLastSyncModelsTime()
 	resp.Success(c, time)
+}
+
+func testChannelModels(c *gin.Context) {
+	type TestModelRequest struct {
+		ChannelID int      `json:"channel_id"`
+		Models    []string `json:"models"`
+	}
+	type TestModelResult struct {
+		Model  string `json:"model"`
+		Passed bool   `json:"passed"`
+		Error  string `json:"error,omitempty"`
+		Delay  int    `json:"delay,omitempty"`
+	}
+
+	var req TestModelRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+
+	if len(req.Models) == 0 {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+
+	channel, err := op.ChannelGet(req.ChannelID, c.Request.Context())
+	if err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	results := make([]TestModelResult, 0, len(req.Models))
+
+	for _, modelName := range req.Models {
+		result := TestModelResult{Model: modelName}
+
+		// 1. Base URL 连通性测试
+		httpClient, err := helper.ChannelHttpClient(channel)
+		if err != nil {
+			result.Passed = false
+			result.Error = "Failed to create HTTP client: " + err.Error()
+			results = append(results, result)
+			continue
+		}
+
+		baseURL := channel.GetBaseUrl()
+		delay, err := helper.GetUrlDelay(httpClient, baseURL, c.Request.Context())
+		if err != nil {
+			result.Passed = false
+			result.Error = "Connectivity test failed: " + err.Error()
+			results = append(results, result)
+			continue
+		}
+		result.Delay = delay
+
+		// 2. LLM 调用测试
+		content := "1+1=?"
+		maxTokens := int64(1)
+		temperature := 0.0
+		testReq := transformerModel.InternalLLMRequest{
+			Model:       modelName,
+			Messages:    []transformerModel.Message{{Role: "user", Content: transformerModel.MessageContent{Content: &content}}},
+			MaxTokens:   &maxTokens,
+			Temperature: &temperature,
+		}
+
+		// 获取一个可用的 key
+		channelKey := channel.GetChannelKey()
+		if channelKey.ChannelKey == "" {
+			result.Passed = false
+			result.Error = "No available API key"
+			results = append(results, result)
+			continue
+		}
+
+		// 获取 outbound adapter
+		outboundAdapter := transformerOutbound.Get(channel.Type)
+		if outboundAdapter == nil {
+			result.Passed = false
+			result.Error = "Unsupported channel type"
+			results = append(results, result)
+			continue
+		}
+
+		// 构建请求
+		outboundReq, err := outboundAdapter.TransformRequest(c.Request.Context(), &testReq, baseURL, channelKey.ChannelKey)
+		if err != nil {
+			result.Passed = false
+			result.Error = "Failed to build request: " + err.Error()
+			results = append(results, result)
+			continue
+		}
+
+		// 发送请求（设置超时）
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+		defer cancel()
+
+		resp, err := httpClient.Do(outboundReq.WithContext(ctx))
+		if err != nil {
+			result.Passed = false
+			result.Error = "LLM request failed: " + err.Error()
+			results = append(results, result)
+			continue
+		}
+		defer resp.Body.Close()
+
+		// 只要成功响应（2xx）就算通过
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			result.Passed = true
+		} else {
+			result.Passed = false
+			result.Error = "LLM returned status: " + resp.Status
+		}
+
+		results = append(results, result)
+	}
+
+	c.JSON(http.StatusOK, results)
 }

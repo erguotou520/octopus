@@ -342,10 +342,10 @@ export function useLastSyncTime() {
 }
 /**
  * 同步渠道 Hook
- * 
+ *
  * @example
  * const syncChannel = useSyncChannel();
- * 
+ *
  * syncChannel.mutate();
  */
 export function useSyncChannel() {
@@ -360,6 +360,43 @@ export function useSyncChannel() {
         },
         onError: (error) => {
             logger.error('渠道同步失败:', error);
+        },
+    });
+}
+
+/**
+ * 测试渠道模型 Hook
+ *
+ * @example
+ * const testModels = useTestChannelModels();
+ *
+ * testModels.mutate({
+ *   channel_id: 1,
+ *   models: ['gpt-4', 'gpt-3.5-turbo'],
+ * });
+ */
+export type TestModelRequest = {
+    channel_id: number;
+    models: string[];
+};
+
+export type TestModelResult = {
+    model: string;
+    passed: boolean;
+    error?: string;
+    delay?: number;
+};
+
+export function useTestChannelModels() {
+    return useMutation({
+        mutationFn: async (data: TestModelRequest) => {
+            return apiClient.post<TestModelResult[]>('/api/v1/channel/test-models', data);
+        },
+        onSuccess: (data) => {
+            logger.log('模型测试完成:', data);
+        },
+        onError: (error) => {
+            logger.error('模型测试失败:', error);
         },
     });
 }

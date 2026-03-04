@@ -1,4 +1,5 @@
 import { AutoGroupType, ChannelType, type Channel, useFetchModel } from '@/api/endpoints/channel';
+import { useProviders } from '@/api/endpoints/providers';
 import {
     Select,
     SelectContent,
@@ -74,6 +75,9 @@ export function ChannelForm({
 }: ChannelFormProps) {
     const t = useTranslations('channel.form');
 
+    // Fetch providers for auto-fill base_url
+    const { data: providers } = useProviders();
+
     // Ensure the form always shows at least 1 row for base_urls / keys / custom_header.
     // This avoids "empty list" UI and also keeps URL + APIKEY layout consistent.
     useEffect(() => {
@@ -90,6 +94,20 @@ export function ChannelForm({
         }
     }, [formData, onFormDataChange]);
 
+    // Auto-fill base_url when type changes and base_url is empty
+    useEffect(() => {
+        if (!providers) return;
+
+        const provider = providers.find((p) => p.channel_type === formData.type);
+        // Only auto-fill if there's exactly one base_url and it's empty
+        if (provider && formData.base_urls.length === 1 && formData.base_urls[0].url === '') {
+            onFormDataChange({
+                ...formData,
+                base_urls: [{ url: provider.base_url, delay: 0 }],
+            });
+        }
+    }, [formData.type, providers, formData.base_urls]);
+
     const autoModels = formData.model
         ? formData.model.split(',').map((m) => m.trim()).filter(Boolean)
         : [];
@@ -98,6 +116,7 @@ export function ChannelForm({
         : [];
     const [inputValue, setInputValue] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
+    const [hasAutoFetched, setHasAutoFetched] = useState(false);
 
     const fetchModel = useFetchModel();
 
@@ -110,6 +129,45 @@ export function ChannelForm({
         if (formData.model === model && formData.custom_model === custom_model) return;
         onFormDataChange({ ...formData, model, custom_model });
     };
+
+    // Auto-fetch models when base_url and key are available
+    useEffect(() => {
+        // Only auto-fetch once per form session
+        if (hasAutoFetched) return;
+
+        const hasBaseUrl = formData.base_urls?.some((u) => u.url.trim());
+        const hasKey = formData.keys?.some((k) => k.channel_key.trim());
+
+        if (hasBaseUrl && hasKey && formData.model === '') {
+            const timer = setTimeout(() => {
+                setHasAutoFetched(true);
+                fetchModel.mutate(
+                    {
+                        type: formData.type,
+                        base_urls: formData.base_urls,
+                        keys: formData.keys
+                            .filter((k) => k.channel_key.trim())
+                            .map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
+                        proxy: formData.proxy,
+                        channel_proxy: formData.channel_proxy?.trim() || null,
+                        match_regex: formData.match_regex.trim() || null,
+                        custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
+                    },
+                    {
+                        onSuccess: (data) => {
+                            if (data && data.length > 0) {
+                                const nextAuto = Array.from(new Set(data.map((m) => m.trim()).filter(Boolean)));
+                                updateModels(nextAuto, customModels);
+                            }
+                        },
+                        // Silent fail for auto-fetch, don't show error toast
+                    }
+                );
+            }, 500); // Debounce to avoid frequent requests
+
+            return () => clearTimeout(timer);
+        }
+    }, [formData.base_urls, formData.keys, hasAutoFetched]);
 
     const handleRefreshModels = async () => {
         if (!formData.base_urls?.[0]?.url || !effectiveKey) return;

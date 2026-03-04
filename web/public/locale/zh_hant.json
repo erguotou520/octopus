@@ -421,6 +421,10 @@
                 "edit": "編輯供應源",
                 "view": "供應源詳情"
             },
+            "tabs": {
+                "stats": "統計",
+                "models": "模型"
+            },
             "sections": {
                 "requests": "請求詳情",
                 "tokens": "Token 使用",
@@ -501,6 +505,18 @@
             "matchRegex": "匹配正規",
             "matchRegexPlaceholder": "可選：用於匹配請求模型名稱的正規表示式",
             "remark": "備註"
+        },
+        "models": {
+            "selectAll": "全選",
+            "deselectAll": "取消全選",
+            "test": "測試",
+            "testSelected": "測試所選",
+            "testing": "測試中...",
+            "testPassed": "通過",
+            "testFailed": "失敗",
+            "noModels": "暫無模型",
+            "selectedCount": "已選 {{count}} 個",
+            "testSummary": "測試完成：共 {{total}} 個模型，通過 {{passed}} 個"
         }
     }
 }

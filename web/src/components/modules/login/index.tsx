@@ -100,9 +100,9 @@ export function LoginForm({ onLoginSuccess }: { onLoginSuccess?: () => void }) {
             </TabsHighlight>
           </TabsList>
 
-          <form onSubmit={handleSubmit} className="space-y-6 pt-2">
-            <TabsContents className="p-3 -mx-3 py-6">
-              <TabsContent value="user" className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+            <TabsContents className="p-3 -mx-4 py-6">
+              <TabsContent value="user" className="space-y-5">
                 <Field>
                   <FieldLabel htmlFor="username">{t('username')}</FieldLabel>
                   <Input

@@ -18,11 +18,12 @@ import {
     MorphingDialogClose,
     useMorphingDialog,
 } from '@/components/ui/morphing-dialog';
-import { Tabs, TabsContents, TabsContent } from '@/components/animate-ui/primitives/animate/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContents, TabsContent } from '@/components/animate-ui/components/animate/tabs';
 import { type StatsMetricsFormatted } from '@/api/endpoints/stats';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { ChannelForm, type ChannelFormData } from './Form';
+import { ModelTabContent } from './ModelTabContent';
 import { formatMoney } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -61,6 +62,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
     });
     const t = useTranslations('channel.detail');
 
+    const [detailTab, setDetailTab] = useState<'stats' | 'models'>('stats');
     const currentView = isEditing ? 'editing' : 'viewing';
 
     const baseUrlsEqual = (a: Channel['base_urls'] | undefined, b: Channel['base_urls'] | undefined) =>
@@ -181,10 +183,31 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
             </MorphingDialogTitle>
 
             <MorphingDialogDescription>
-                <Tabs value={currentView}>
+                <Tabs value={isEditing ? 'editing' : currentView}>
+                    {!isEditing && (
+                        <div className="flex justify-center mb-4">
+                            <TabsList className="relative">
+                                <TabsTrigger
+                                    value="stats"
+                                    onClick={() => setDetailTab('stats')}
+                                    data-state={detailTab === 'stats' ? 'active' : 'inactive'}
+                                >
+                                    {t('tabs.stats')}
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="models"
+                                    onClick={() => setDetailTab('models')}
+                                    data-state={detailTab === 'models' ? 'active' : 'inactive'}
+                                >
+                                    {t('tabs.models')}
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
+                    )}
                     <TabsContents>
-                        <TabsContent value="viewing" >
-                            <div className="max-h-[60vh] overflow-y-auto space-y-4 sm:space-y-5">
+                        <TabsContent value="viewing" forceMount={detailTab === 'models'}>
+                            {detailTab === 'stats' ? (
+                                <div className="max-h-[60vh] overflow-y-auto space-y-4 sm:space-y-5">
                                 <dl className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                                     <div className="rounded-2xl border bg-linear-to-br from-chart-1/10 to-chart-1/5 p-3 sm:p-4">
                                         <dt className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
@@ -420,6 +443,9 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                                     </dd>
                                 </dl>
                             </div>
+                            ) : (
+                                <ModelTabContent channel={channel} />
+                            )}
 
                             {/* 操作按钮 */}
                             <div className="grid gap-3 sm:grid-cols-2 pt-2">

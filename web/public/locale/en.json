@@ -421,6 +421,10 @@
                 "edit": "Edit Channel",
                 "view": "Channel Details"
             },
+            "tabs": {
+                "stats": "Statistics",
+                "models": "Models"
+            },
             "sections": {
                 "requests": "Request Details",
                 "tokens": "Token Usage",
@@ -501,6 +505,18 @@
             "matchRegex": "Match Regex",
             "matchRegexPlaceholder": "Optional: regex pattern to match request model names",
             "remark": "Remark"
+        },
+        "models": {
+            "selectAll": "Select All",
+            "deselectAll": "Deselect All",
+            "test": "Test",
+            "testSelected": "Test Selected",
+            "testing": "Testing...",
+            "testPassed": "Passed",
+            "testFailed": "Failed",
+            "noModels": "No models",
+            "selectedCount": "{{count}} selected",
+            "testSummary": "Test completed: {{total}} models, {{passed}} passed"
         }
     }
 }
