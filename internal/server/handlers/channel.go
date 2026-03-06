@@ -60,6 +60,10 @@ func init() {
 		AddRoute(
 			router.NewRoute("/test-models", http.MethodPost).
 				Handle(testChannelModels),
+		).
+		AddRoute(
+			router.NewRoute("/test-models-by-config", http.MethodPost).
+				Handle(testChannelModelsByConfig),
 		)
 }
 
@@ -288,6 +292,134 @@ func testChannelModels(c *gin.Context) {
 		} else {
 			result.Passed = false
 			result.Error = "LLM returned status: " + resp.Status
+		}
+
+		results = append(results, result)
+	}
+
+	c.JSON(http.StatusOK, results)
+}
+
+func testChannelModelsByConfig(c *gin.Context) {
+	type TestModelByConfigRequest struct {
+		Type     transformerOutbound.OutboundType `json:"type"`
+		BaseUrls []model.BaseUrl                  `json:"base_urls"`
+		Keys     []struct {
+			Enabled    bool   `json:"enabled"`
+			ChannelKey string `json:"channel_key"`
+		} `json:"keys"`
+		Proxy        bool                 `json:"proxy"`
+		ChannelProxy *string              `json:"channel_proxy"`
+		CustomHeader []model.CustomHeader `json:"custom_header"`
+		Models       []string             `json:"models"`
+	}
+	type TestModelResult struct {
+		Model  string `json:"model"`
+		Passed bool   `json:"passed"`
+		Error  string `json:"error,omitempty"`
+		Delay  int    `json:"delay,omitempty"`
+	}
+
+	var req TestModelByConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+
+	if len(req.Models) == 0 {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+
+	// Build a temporary channel from config
+	channel := &model.Channel{
+		Type:         req.Type,
+		BaseUrls:     req.BaseUrls,
+		Proxy:        req.Proxy,
+		ChannelProxy: req.ChannelProxy,
+		CustomHeader: req.CustomHeader,
+	}
+	for _, k := range req.Keys {
+		channel.Keys = append(channel.Keys, model.ChannelKey{
+			Enabled:    k.Enabled,
+			ChannelKey: k.ChannelKey,
+		})
+	}
+
+	results := make([]TestModelResult, 0, len(req.Models))
+
+	for _, modelName := range req.Models {
+		result := TestModelResult{Model: modelName}
+
+		httpClient, err := helper.ChannelHttpClient(channel)
+		if err != nil {
+			result.Passed = false
+			result.Error = "Failed to create HTTP client: " + err.Error()
+			results = append(results, result)
+			continue
+		}
+
+		baseURL := channel.GetBaseUrl()
+		delay, err := helper.GetUrlDelay(httpClient, baseURL, c.Request.Context())
+		if err != nil {
+			result.Passed = false
+			result.Error = "Connectivity test failed: " + err.Error()
+			results = append(results, result)
+			continue
+		}
+		result.Delay = delay
+
+		content := "1+1=?"
+		maxTokens := int64(1)
+		temperature := 0.0
+		testReq := transformerModel.InternalLLMRequest{
+			Model:       modelName,
+			Messages:    []transformerModel.Message{{Role: "user", Content: transformerModel.MessageContent{Content: &content}}},
+			MaxTokens:   &maxTokens,
+			Temperature: &temperature,
+		}
+
+		channelKey := channel.GetChannelKey()
+		if channelKey.ChannelKey == "" {
+			result.Passed = false
+			result.Error = "No available API key"
+			results = append(results, result)
+			continue
+		}
+
+		outboundAdapter := transformerOutbound.Get(channel.Type)
+		if outboundAdapter == nil {
+			result.Passed = false
+			result.Error = "Unsupported channel type"
+			results = append(results, result)
+			continue
+		}
+
+		outboundReq, err := outboundAdapter.TransformRequest(c.Request.Context(), &testReq, baseURL, channelKey.ChannelKey)
+		if err != nil {
+			result.Passed = false
+			result.Error = "Failed to build request: " + err.Error()
+			results = append(results, result)
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+		defer cancel()
+
+		httpResp, err := httpClient.Do(outboundReq.WithContext(ctx))
+		if err != nil {
+			result.Passed = false
+			result.Error = "LLM request failed: " + err.Error()
+			results = append(results, result)
+			continue
+		}
+		defer httpResp.Body.Close()
+
+		if httpResp.StatusCode >= 200 && httpResp.StatusCode < 300 {
+			result.Passed = true
+		} else {
+			result.Passed = false
+			result.Error = "LLM returned status: " + httpResp.Status
 		}
 
 		results = append(results, result)

@@ -50,7 +50,8 @@
         "key": "密钥",
         "model": "价格",
         "log": "日志",
-        "setting": "设置"
+        "setting": "设置",
+        "doc": "API 使用文档"
     },
     "toolbar": {
         "popover": {
@@ -325,6 +326,11 @@
             },
             "clearSuccess": "日志已清空",
             "clearFailed": "清空失败"
+        },
+        "apiBaseUrl": {
+            "label": "系统 API 地址",
+            "placeholder": "http://localhost:8080",
+            "hint": "用于文档弹框中的 curl 示例地址，默认为 http://localhost:8080"
         }
     },
     "group": {
@@ -533,7 +539,20 @@
             "autoGroupRegex": "正则匹配",
             "matchRegex": "匹配正则",
             "matchRegexPlaceholder": "可选：用于匹配请求模型名称的正则表达式",
-            "remark": "备注"
+            "remark": "备注",
+            "providerPreset": "Provider 预设",
+            "providerPresetPlaceholder": "选择一个 Provider 快速填充 Base URL 和类型",
+            "namePlaceholder": "请输入渠道名称",
+            "namePlaceholderPrefix": "我的 ",
+            "baseUrlTooltip": "API 地址通常以 /v1 结尾，例如 https://api.openai.com/v1",
+            "testFirst": "测试",
+            "testFirstTitle": "测试第一个模型",
+            "testAll": "全部测试",
+            "testAllTitle": "测试所有模型",
+            "testFailed": "测试请求失败",
+            "testNeedBaseUrlAndKey": "请先填写 Base URL 和 API Key",
+            "testResultTitle": "测试结果",
+            "testResultSummary": "共 {total} 个模型，通过 {passed} 个"
         },
         "models": {
             "selectAll": "全选",
@@ -547,5 +566,25 @@
             "selectedCount": "已选 {{count}} 个",
             "testSummary": "测试完成：共 {{total}} 个模型，通过 {{passed}} 个"
         }
+    },
+    "doc": {
+        "title": "API 使用文档",
+        "baseUrl": "API 地址",
+        "apiType": "API 类型",
+        "typeOpenAIChat": "OpenAI Chat (/v1/chat/completions)",
+        "typeOpenAIResponses": "OpenAI Responses (/v1/responses)",
+        "typeAnthropic": "Anthropic (/v1/messages)",
+        "apiKey": "API 密钥",
+        "apiKeyPlaceholder": "选择密钥",
+        "model": "模型/分组",
+        "modelPlaceholder": "选择分组名称",
+        "curlCode": "curl 示例",
+        "copy": "复制",
+        "copied": "已复制",
+        "endpoints": "端点说明",
+        "endpointOpenAIChat": "OpenAI Chat 格式",
+        "endpointOpenAIResponses": "OpenAI Responses 格式",
+        "endpointAnthropic": "Anthropic Messages 格式",
+        "endpointEmbeddings": "Embedding 格式"
     }
 }

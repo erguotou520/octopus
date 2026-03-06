@@ -400,3 +400,27 @@ export function useTestChannelModels() {
         },
     });
 }
+
+export type TestModelByConfigRequest = {
+    type: ChannelType;
+    base_urls: BaseUrl[];
+    keys: Array<Pick<ChannelKey, 'enabled' | 'channel_key'>>;
+    proxy?: boolean;
+    channel_proxy?: string | null;
+    custom_header?: Array<CustomHeader>;
+    models: string[];
+};
+
+export function useTestChannelModelsByConfig() {
+    return useMutation({
+        mutationFn: async (data: TestModelByConfigRequest) => {
+            return apiClient.post<TestModelResult[]>('/api/v1/channel/test-models-by-config', data);
+        },
+        onSuccess: (data) => {
+            logger.log('模型(配置)测试完成:', data);
+        },
+        onError: (error) => {
+            logger.error('模型(配置)测试失败:', error);
+        },
+    });
+}

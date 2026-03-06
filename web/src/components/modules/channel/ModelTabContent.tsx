@@ -140,7 +140,7 @@ export function ModelTabContent({ channel }: ModelTabContentProps) {
                                     <Checkbox
                                         id={`model-${model}`}
                                         checked={isSelected}
-                                        onCheckedChange={(checked) => {
+                                        onChange={(checked) => {
                                             const newSet = new Set(selectedModels);
                                             if (checked) newSet.add(model);
                                             else newSet.delete(model);

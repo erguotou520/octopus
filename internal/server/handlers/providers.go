@@ -25,6 +25,13 @@ var defaultProviders = []Provider{
 	{Name: "Gemini", ChannelType: 3, BaseURL: "https://generativelanguage.googleapis.com/v1beta"},
 	{Name: "Volcengine", ChannelType: 4, BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
 	{Name: "OpenAI Embedding", ChannelType: 5, BaseURL: "https://api.openai.com/v1"},
+	{Name: "OpenRouter", ChannelType: 0, BaseURL: "https://openrouter.ai/api/v1"},
+	{Name: "Zhipu AI", ChannelType: 0, BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
+	{Name: "Zhipu Coding", ChannelType: 0, BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
+	{Name: "GitHub Copilot", ChannelType: 0, BaseURL: "https://api.githubcopilot.com"},
+	{Name: "Vercel AI Gateway", ChannelType: 0, BaseURL: "https://ai.vercel.app/api/v1"},
+	{Name: "OpenCode Zen", ChannelType: 0, BaseURL: "https://api.opencode.ai/v1"},
+	{Name: "Antigravity", ChannelType: 0, BaseURL: "https://api.antigravity.ai/v1"},
 }
 
 // GetProviders returns the list of providers

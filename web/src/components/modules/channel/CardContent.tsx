@@ -205,7 +205,7 @@ export function CardContent({ channel, stats }: { channel: Channel; stats: Stats
                         </div>
                     )}
                     <TabsContents>
-                        <TabsContent value="viewing" forceMount={detailTab === 'models'}>
+                        <TabsContent value="viewing">
                             {detailTab === 'stats' ? (
                                 <div className="max-h-[60vh] overflow-y-auto space-y-4 sm:space-y-5">
                                 <dl className="grid gap-3 grid-cols-1 sm:grid-cols-3">

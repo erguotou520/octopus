@@ -28,5 +28,40 @@
     "name": "OpenAI Embedding",
     "channel_type": 5,
     "base_url": "https://api.openai.com/v1"
+  },
+  {
+    "name": "OpenRouter",
+    "channel_type": 0,
+    "base_url": "https://openrouter.ai/api/v1"
+  },
+  {
+    "name": "Zhipu AI",
+    "channel_type": 0,
+    "base_url": "https://open.bigmodel.cn/api/paas/v4"
+  },
+  {
+    "name": "Zhipu Coding",
+    "channel_type": 0,
+    "base_url": "https://open.bigmodel.cn/api/paas/v4"
+  },
+  {
+    "name": "GitHub Copilot",
+    "channel_type": 0,
+    "base_url": "https://api.githubcopilot.com"
+  },
+  {
+    "name": "Vercel AI Gateway",
+    "channel_type": 0,
+    "base_url": "https://ai.vercel.app/api/v1"
+  },
+  {
+    "name": "OpenCode Zen",
+    "channel_type": 0,
+    "base_url": "https://api.opencode.ai/v1"
+  },
+  {
+    "name": "Antigravity",
+    "channel_type": 0,
+    "base_url": "https://api.antigravity.ai/v1"
   }
 ]

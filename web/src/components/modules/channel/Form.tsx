@@ -1,4 +1,4 @@
-import { AutoGroupType, ChannelType, type Channel, useFetchModel } from '@/api/endpoints/channel';
+import { AutoGroupType, ChannelType, type Channel, useFetchModel, useTestChannelModelsByConfig, type TestModelResult } from '@/api/endpoints/channel';
 import { useProviders } from '@/api/endpoints/providers';
 import {
     Select,
@@ -12,9 +12,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/common/Toast';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, X, Plus } from 'lucide-react';
+import { RefreshCw, X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
 export interface ChannelKeyFormItem {
     id?: number;
@@ -53,6 +54,7 @@ export interface ChannelFormProps {
     onCancel?: () => void;
     cancelText?: string;
     idPrefix?: string;
+    channelId?: number;
 }
 
 import {
@@ -77,6 +79,11 @@ export function ChannelForm({
 
     // Fetch providers for auto-fill base_url
     const { data: providers } = useProviders();
+
+    // Test state
+    const testByConfig = useTestChannelModelsByConfig();
+    const [isTesting, setIsTesting] = useState(false);
+    const [testResults, setTestResults] = useState<Map<string, TestModelResult>>(new Map());
 
     // Ensure the form always shows at least 1 row for base_urls / keys / custom_header.
     // This avoids "empty list" UI and also keeps URL + APIKEY layout consistent.
@@ -279,8 +286,88 @@ export function ChannelForm({
         onFormDataChange({ ...formData, custom_header: curr.filter((_, i) => i !== idx) });
     };
 
+    // All models (auto + custom)
+    const allModels = [
+        ...autoModels,
+        ...customModels,
+    ];
+
+    const handleTestModels = async (models: string[]) => {
+        if (models.length === 0 || isTesting) return;
+        const hasBaseUrl = formData.base_urls?.some((u) => u.url.trim());
+        const hasKey = formData.keys?.some((k) => k.channel_key.trim());
+        if (!hasBaseUrl || !hasKey) {
+            toast.warning(t('testNeedBaseUrlAndKey'));
+            return;
+        }
+        setIsTesting(true);
+        try {
+            const results = await testByConfig.mutateAsync({
+                type: formData.type,
+                base_urls: formData.base_urls.filter((u) => u.url.trim()),
+                keys: formData.keys.filter((k) => k.channel_key.trim()).map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
+                proxy: formData.proxy,
+                channel_proxy: formData.channel_proxy?.trim() || null,
+                custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
+                models,
+            });
+            const map = new Map<string, TestModelResult>();
+            for (const r of results) map.set(r.model, r);
+            setTestResults(map);
+        } catch (e) {
+            toast.error(t('testFailed'));
+        } finally {
+            setIsTesting(false);
+        }
+    };
+
+    const handleTestFirst = () => {
+        if (allModels.length > 0) handleTestModels([allModels[0]]);
+    };
+
+    const handleTestAll = () => {
+        handleTestModels(allModels);
+    };
+
+    // Provider preset quick-select
+    const handleProviderPreset = (providerName: string) => {
+        if (!providers) return;
+        const provider = providers.find((p) => p.name === providerName);
+        if (!provider) return;
+        onFormDataChange({
+            ...formData,
+            type: provider.channel_type as ChannelType,
+            base_urls: [{ url: provider.base_url, delay: 0 }],
+        });
+    };
+
+    const namePlaceholder = (() => {
+        if (!providers) return t('namePlaceholder');
+        const currentUrl = formData.base_urls?.[0]?.url?.trim();
+        const p = providers.find((p) => currentUrl && p.base_url === currentUrl);
+        return p ? `${t('namePlaceholderPrefix')}${p.name}` : t('namePlaceholder');
+    })();
+
     return (
         <form onSubmit={onSubmit} className="space-y-4 px-1">
+            {/* Provider 快速预设选择 */}
+            {providers && providers.length > 0 && (
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-card-foreground">{t('providerPreset')}</label>
+                    <Select onValueChange={handleProviderPreset}>
+                        <SelectTrigger className="rounded-xl w-full border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            <SelectValue placeholder={t('providerPresetPlaceholder')} />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                            {providers.map((p) => (
+                                <SelectItem key={`${p.name}-${p.channel_type}`} className="rounded-xl" value={p.name}>
+                                    {p.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <label htmlFor={`${idPrefix}-name`} className="text-sm font-medium text-card-foreground">
@@ -292,6 +379,7 @@ export function ChannelForm({
                         type="text"
                         value={formData.name}
                         onChange={(event) => onFormDataChange({ ...formData, name: event.target.value })}
+                        placeholder={namePlaceholder}
                         required
                     />
                 </div>
@@ -321,9 +409,21 @@ export function ChannelForm({
 
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-card-foreground">
-                        {t('baseUrls')} {formData.base_urls.length > 0 ? `(${formData.base_urls.length})` : ''}
-                    </label>
+                    <div className="flex items-center gap-1">
+                        <label className="text-sm font-medium text-card-foreground">
+                            {t('baseUrls')} {formData.base_urls.length > 0 ? `(${formData.base_urls.length})` : ''}
+                        </label>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <HelpCircle className="size-3.5 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    {t('baseUrlTooltip')}
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
                     <Button
                         type="button"
                         variant="ghost"
@@ -673,14 +773,73 @@ export function ChannelForm({
                         {cancelText}
                     </Button>
                 )}
-                <Button
-                    type="submit"
-                    disabled={isPending}
-                    className="w-full sm:flex-1 rounded-2xl h-12"
-                >
-                    {isPending ? pendingText : submitText}
-                </Button>
+                <div className="flex gap-2 w-full sm:flex-1">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isTesting || allModels.length === 0}
+                        onClick={handleTestFirst}
+                        className="flex-1 rounded-2xl h-12"
+                        title={t('testFirstTitle')}
+                    >
+                        {isTesting ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : null}
+                        {t('testFirst')}
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isTesting || allModels.length === 0}
+                        onClick={handleTestAll}
+                        className="flex-1 rounded-2xl h-12"
+                        title={t('testAllTitle')}
+                    >
+                        {isTesting ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                        ) : null}
+                        {t('testAll')}
+                    </Button>
+                    <Button
+                        type="submit"
+                        disabled={isPending}
+                        className="flex-1 rounded-2xl h-12"
+                    >
+                        {isPending ? pendingText : submitText}
+                    </Button>
+                </div>
             </div>
+
+            {/* 测试结果摘要 */}
+            {testResults.size > 0 && (
+                <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
+                    <div className="text-xs font-medium text-card-foreground">{t('testResultTitle')}</div>
+                    <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {Array.from(testResults.entries()).map(([model, result]) => (
+                            <div key={model} className="flex items-center gap-2 text-xs">
+                                {result.passed ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                                ) : (
+                                    <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                                )}
+                                <span className="font-mono flex-1 truncate">{model}</span>
+                                {result.delay !== undefined && (
+                                    <span className="text-muted-foreground">{result.delay}ms</span>
+                                )}
+                                {result.error && (
+                                    <span className="text-red-500 truncate max-w-32" title={result.error}>{result.error}</span>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                        {t('testResultSummary', {
+                            total: testResults.size,
+                            passed: Array.from(testResults.values()).filter((r) => r.passed).length,
+                        })}
+                    </div>
+                </div>
+            )}
         </form>
     );
 }

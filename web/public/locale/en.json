@@ -50,7 +50,8 @@
         "key": "Key",
         "model": "Price",
         "log": "Log",
-        "setting": "Setting"
+        "setting": "Setting",
+        "doc": "API Usage Docs"
     },
     "toolbar": {
         "popover": {
@@ -325,6 +326,11 @@
             },
             "clearSuccess": "Logs cleared",
             "clearFailed": "Failed to clear logs"
+        },
+        "apiBaseUrl": {
+            "label": "System API Base URL",
+            "placeholder": "http://localhost:8080",
+            "hint": "Used in API docs curl example. Default: http://localhost:8080"
         }
     },
     "group": {
@@ -533,7 +539,20 @@
             "autoGroupRegex": "Regex",
             "matchRegex": "Match Regex",
             "matchRegexPlaceholder": "Optional: regex pattern to match request model names",
-            "remark": "Remark"
+            "remark": "Remark",
+            "providerPreset": "Provider Preset",
+            "providerPresetPlaceholder": "Select a provider to auto-fill Base URL and type",
+            "namePlaceholder": "Enter channel name",
+            "namePlaceholderPrefix": "My ",
+            "baseUrlTooltip": "API URL usually ends with /v1, e.g. https://api.openai.com/v1",
+            "testFirst": "Test",
+            "testFirstTitle": "Test first model",
+            "testAll": "Test All",
+            "testAllTitle": "Test all models",
+            "testFailed": "Test request failed",
+            "testNeedBaseUrlAndKey": "Please fill in Base URL and API Key first",
+            "testResultTitle": "Test Results",
+            "testResultSummary": "{total} models tested, {passed} passed"
         },
         "models": {
             "selectAll": "Select All",
@@ -547,5 +566,25 @@
             "selectedCount": "{{count}} selected",
             "testSummary": "Test completed: {{total}} models, {{passed}} passed"
         }
+    },
+    "doc": {
+        "title": "API Usage Docs",
+        "baseUrl": "API Base URL",
+        "apiType": "API Type",
+        "typeOpenAIChat": "OpenAI Chat (/v1/chat/completions)",
+        "typeOpenAIResponses": "OpenAI Responses (/v1/responses)",
+        "typeAnthropic": "Anthropic (/v1/messages)",
+        "apiKey": "API Key",
+        "apiKeyPlaceholder": "Select API key",
+        "model": "Model / Group",
+        "modelPlaceholder": "Select group name",
+        "curlCode": "curl Example",
+        "copy": "Copy",
+        "copied": "Copied",
+        "endpoints": "Endpoints",
+        "endpointOpenAIChat": "OpenAI Chat format",
+        "endpointOpenAIResponses": "OpenAI Responses format",
+        "endpointAnthropic": "Anthropic Messages format",
+        "endpointEmbeddings": "Embeddings format"
     }
 }

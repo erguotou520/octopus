@@ -50,7 +50,8 @@
         "key": "金鑰",
         "model": "價格",
         "log": "日誌",
-        "setting": "設定"
+        "setting": "設定",
+        "doc": "API 使用文件"
     },
     "toolbar": {
         "popover": {
@@ -325,6 +326,11 @@
             },
             "clearSuccess": "日誌已清空",
             "clearFailed": "清空失敗"
+        },
+        "apiBaseUrl": {
+            "label": "系統 API 地址",
+            "placeholder": "http://localhost:8080",
+            "hint": "用於文件彈框中的 curl 範例地址，預設為 http://localhost:8080"
         }
     },
     "group": {
@@ -533,7 +539,20 @@
             "autoGroupRegex": "正規比對",
             "matchRegex": "匹配正規",
             "matchRegexPlaceholder": "可選：用於匹配請求模型名稱的正規表示式",
-            "remark": "備註"
+            "remark": "備註",
+            "providerPreset": "Provider 預設",
+            "providerPresetPlaceholder": "選擇一個 Provider 快速填充 Base URL 和類型",
+            "namePlaceholder": "請輸入供應源名稱",
+            "namePlaceholderPrefix": "我的 ",
+            "baseUrlTooltip": "API 地址通常以 /v1 結尾，例如 https://api.openai.com/v1",
+            "testFirst": "測試",
+            "testFirstTitle": "測試第一個模型",
+            "testAll": "全部測試",
+            "testAllTitle": "測試所有模型",
+            "testFailed": "測試請求失敗",
+            "testNeedBaseUrlAndKey": "請先填寫 Base URL 和 API Key",
+            "testResultTitle": "測試結果",
+            "testResultSummary": "共 {total} 個模型，通過 {passed} 個"
         },
         "models": {
             "selectAll": "全選",
@@ -547,5 +566,25 @@
             "selectedCount": "已選 {{count}} 個",
             "testSummary": "測試完成：共 {{total}} 個模型，通過 {{passed}} 個"
         }
+    },
+    "doc": {
+        "title": "API 使用文件",
+        "baseUrl": "API 地址",
+        "apiType": "API 類型",
+        "typeOpenAIChat": "OpenAI Chat (/v1/chat/completions)",
+        "typeOpenAIResponses": "OpenAI Responses (/v1/responses)",
+        "typeAnthropic": "Anthropic (/v1/messages)",
+        "apiKey": "API 金鑰",
+        "apiKeyPlaceholder": "選擇金鑰",
+        "model": "模型/分組",
+        "modelPlaceholder": "選擇分組名稱",
+        "curlCode": "curl 範例",
+        "copy": "複製",
+        "copied": "已複製",
+        "endpoints": "端點說明",
+        "endpointOpenAIChat": "OpenAI Chat 格式",
+        "endpointOpenAIResponses": "OpenAI Responses 格式",
+        "endpointAnthropic": "Anthropic Messages 格式",
+        "endpointEmbeddings": "Embedding 格式"
     }
 }
