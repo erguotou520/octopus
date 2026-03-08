@@ -17,6 +17,8 @@ const (
 	OutboundTypeGemini
 	OutboundTypeVolcengine
 	OutboundTypeOpenAIEmbedding
+	OutboundTypeGithubCopilot // 6: GitHub Copilot (OAuth Device Flow, uses OpenAI Chat format)
+	OutboundTypeAntigravity   // 7: Antigravity (OAuth Web Flow reverse proxy)
 )
 
 // EmbeddingChannelTypes 定义支持 embedding 请求的 channel 类型集合
@@ -31,6 +33,8 @@ var ChatChannelTypes = map[OutboundType]bool{
 	OutboundTypeAnthropic:      true,
 	OutboundTypeGemini:         true,
 	OutboundTypeVolcengine:     true,
+	OutboundTypeGithubCopilot:  true,
+	OutboundTypeAntigravity:    true,
 }
 
 // IsEmbeddingChannelType 判断 channel 类型是否支持 embedding 请求
@@ -50,6 +54,10 @@ var outboundFactories = map[OutboundType]func() model.Outbound{
 	OutboundTypeAnthropic:       func() model.Outbound { return &authropic.MessageOutbound{} },
 	OutboundTypeGemini:          func() model.Outbound { return &gemini.MessagesOutbound{} },
 	OutboundTypeVolcengine:      func() model.Outbound { return &volcengine.ResponseOutbound{} },
+	// GitHub Copilot uses OpenAI Chat format with Bearer token (obtained via OAuth Device Flow)
+	OutboundTypeGithubCopilot: func() model.Outbound { return &openai.ChatOutbound{} },
+	// Antigravity uses OpenAI Chat format with Bearer token (obtained via OAuth Web Flow)
+	OutboundTypeAntigravity: func() model.Outbound { return &openai.ChatOutbound{} },
 }
 
 func Get(outboundType OutboundType) model.Outbound {

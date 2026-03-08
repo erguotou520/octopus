@@ -5,6 +5,7 @@ export interface Provider {
     name: string;
     channel_type: number;
     base_url: string;
+    auth_type?: string; // 'oauth_device' | 'oauth_web' | undefined (default: api_key)
 }
 
 export function useProviders() {

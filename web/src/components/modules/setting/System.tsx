@@ -22,6 +22,7 @@ export function SettingSystem() {
     const initialStatsSaveInterval = useRef('');
     const initialCorsAllowOrigins = useRef('');
     const initialApiBaseUrl = useRef('');
+    const initialized = useRef(false);
 
     useEffect(() => {
         if (settings) {
@@ -29,21 +30,21 @@ export function SettingSystem() {
             const interval = settings.find(s => s.key === SettingKey.StatsSaveInterval);
             const cors = settings.find(s => s.key === SettingKey.CORSAllowOrigins);
             const apiUrl = settings.find(s => s.key === SettingKey.ApiBaseUrl);
-            if (proxy) {
-                queueMicrotask(() => setProxyUrl(proxy.value));
-                initialProxyUrl.current = proxy.value;
-            }
-            if (interval) {
-                queueMicrotask(() => setStatsSaveInterval(interval.value));
-                initialStatsSaveInterval.current = interval.value;
-            }
-            if (cors) {
-                queueMicrotask(() => setCorsAllowOrigins(cors.value));
-                initialCorsAllowOrigins.current = cors.value;
-            }
-            if (apiUrl) {
-                queueMicrotask(() => setApiBaseUrl(apiUrl.value));
-                initialApiBaseUrl.current = apiUrl.value;
+
+            if (!initialized.current) {
+                // First load: initialize both state and refs
+                initialized.current = true;
+                if (proxy) { setProxyUrl(proxy.value); initialProxyUrl.current = proxy.value; }
+                if (interval) { setStatsSaveInterval(interval.value); initialStatsSaveInterval.current = interval.value; }
+                if (cors) { setCorsAllowOrigins(cors.value); initialCorsAllowOrigins.current = cors.value; }
+                if (apiUrl) { setApiBaseUrl(apiUrl.value); initialApiBaseUrl.current = apiUrl.value; }
+            } else {
+                // Subsequent polling: only update refs (not state) to keep in sync with server
+                // This avoids overwriting any unsaved edits the user is making
+                if (proxy) initialProxyUrl.current = proxy.value;
+                if (interval) initialStatsSaveInterval.current = interval.value;
+                if (cors) initialCorsAllowOrigins.current = cors.value;
+                if (apiUrl) initialApiBaseUrl.current = apiUrl.value;
             }
         }
     }, [settings]);

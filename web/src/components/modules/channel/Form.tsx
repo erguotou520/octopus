@@ -15,7 +15,7 @@ import { toast } from '@/components/common/Toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { RefreshCw, X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2, Info } from 'lucide-react';
 
 export interface ChannelKeyFormItem {
     id?: number;
@@ -402,10 +402,34 @@ export function ChannelForm({
                             <SelectItem className='rounded-xl' value={String(ChannelType.Gemini)}>{t('typeGemini')}</SelectItem>
                             <SelectItem className='rounded-xl' value={String(ChannelType.Volcengine)}>{t('typeVolcengine')}</SelectItem>
                             <SelectItem className='rounded-xl' value={String(ChannelType.OpenAIEmbedding)}>{t('typeOpenAIEmbedding')}</SelectItem>
+                            <SelectItem className='rounded-xl' value={String(ChannelType.GithubCopilot)}>{t('typeGithubCopilot')}</SelectItem>
+                            <SelectItem className='rounded-xl' value={String(ChannelType.Antigravity)}>{t('typeAntigravity')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
             </div>
+
+            {/* GitHub Copilot 特殊提示 */}
+            {formData.type === ChannelType.GithubCopilot && (
+                <div className="flex items-start gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
+                    <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                        <div className="font-medium">{t('githubCopilotHint')}</div>
+                        <div className="mt-1 text-xs opacity-80">{t('githubCopilotHintDesc')}</div>
+                    </div>
+                </div>
+            )}
+
+            {/* Antigravity 特殊提示 */}
+            {formData.type === ChannelType.Antigravity && (
+                <div className="flex items-start gap-2 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm text-purple-700 dark:text-purple-300">
+                    <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div>
+                        <div className="font-medium">{t('antigravityHint')}</div>
+                        <div className="mt-1 text-xs opacity-80">{t('antigravityHintDesc')}</div>
+                    </div>
+                </div>
+            )}
 
             <div className="space-y-2">
                 <div className="flex items-center justify-between">

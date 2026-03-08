@@ -5,11 +5,6 @@
     "base_url": "https://api.openai.com/v1"
   },
   {
-    "name": "OpenAI Response",
-    "channel_type": 1,
-    "base_url": "https://api.openai.com/v1"
-  },
-  {
     "name": "Anthropic",
     "channel_type": 2,
     "base_url": "https://api.anthropic.com/v1"
@@ -20,7 +15,7 @@
     "base_url": "https://generativelanguage.googleapis.com/v1beta"
   },
   {
-    "name": "Volcengine",
+    "name": "火山引擎",
     "channel_type": 4,
     "base_url": "https://ark.cn-beijing.volces.com/api/v3"
   },
@@ -35,19 +30,20 @@
     "base_url": "https://openrouter.ai/api/v1"
   },
   {
-    "name": "Zhipu AI",
+    "name": "质谱 AI",
     "channel_type": 0,
     "base_url": "https://open.bigmodel.cn/api/paas/v4"
   },
   {
-    "name": "Zhipu Coding",
+    "name": "质谱 Coding Plan",
     "channel_type": 0,
-    "base_url": "https://open.bigmodel.cn/api/paas/v4"
+    "base_url": "https://open.bigmodel.cn/api/coding/paas/v4"
   },
   {
     "name": "GitHub Copilot",
-    "channel_type": 0,
-    "base_url": "https://api.githubcopilot.com"
+    "channel_type": 6,
+    "base_url": "https://api.githubcopilot.com",
+    "auth_type": "oauth_device"
   },
   {
     "name": "Vercel AI Gateway",
@@ -61,7 +57,8 @@
   },
   {
     "name": "Antigravity",
-    "channel_type": 0,
-    "base_url": "https://api.antigravity.ai/v1"
+    "channel_type": 7,
+    "base_url": "https://api.antigravity.ai/v1",
+    "auth_type": "oauth_web"
   }
 ]

@@ -129,59 +129,59 @@ export function DocModal({ isOpen, onClose }: DocModalProps) {
 
                         {/* Content */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-                            {/* API 地址 */}
-                            <div className="space-y-1">
-                                <label className="text-sm font-medium text-muted-foreground">{t('baseUrl')}</label>
-                                <div className="font-mono text-sm bg-muted/30 rounded-xl px-3 py-2 text-card-foreground break-all">{baseUrl}</div>
+                            {/* 第一行：API 地址 + API 类型 */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-sm font-medium text-muted-foreground">{t('baseUrl')}</label>
+                                    <div className="font-mono text-sm bg-muted/30 rounded-xl px-3 py-2 text-card-foreground break-all truncate">{baseUrl}</div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-card-foreground">{t('apiType')}</label>
+                                    <Select value={apiType} onValueChange={(v) => setApiType(v as ApiType)}>
+                                        <SelectTrigger className="rounded-xl">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            <SelectItem className="rounded-xl" value="openai-chat">{t('typeOpenAIChat')}</SelectItem>
+                                            <SelectItem className="rounded-xl" value="openai-responses">{t('typeOpenAIResponses')}</SelectItem>
+                                            <SelectItem className="rounded-xl" value="anthropic">{t('typeAnthropic')}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
-                            {/* 选择 API 类型 */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-card-foreground">{t('apiType')}</label>
-                                <Select value={apiType} onValueChange={(v) => setApiType(v as ApiType)}>
-                                    <SelectTrigger className="rounded-xl">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        <SelectItem className="rounded-xl" value="openai-chat">{t('typeOpenAIChat')}</SelectItem>
-                                        <SelectItem className="rounded-xl" value="openai-responses">{t('typeOpenAIResponses')}</SelectItem>
-                                        <SelectItem className="rounded-xl" value="anthropic">{t('typeAnthropic')}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {/* 选择 API Key */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-card-foreground">{t('apiKey')}</label>
-                                <Select value={selectedApiKey} onValueChange={setSelectedApiKey}>
-                                    <SelectTrigger className="rounded-xl">
-                                        <SelectValue placeholder={t('apiKeyPlaceholder')} />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        {(apiKeys ?? []).map((key) => (
-                                            <SelectItem key={key.id} className="rounded-xl" value={key.api_key}>
-                                                {key.name} <span className="text-muted-foreground text-xs">{key.api_key.slice(0, 16)}...</span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {/* 选择分组（模型） */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-card-foreground">{t('model')}</label>
-                                <Select value={selectedModel} onValueChange={setSelectedModel}>
-                                    <SelectTrigger className="rounded-xl">
-                                        <SelectValue placeholder={t('modelPlaceholder')} />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-xl">
-                                        {(groups ?? []).map((g) => (
-                                            <SelectItem key={g.id} className="rounded-xl" value={g.name}>
-                                                {g.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            {/* 第二行：API 密钥 + 模型/分组 */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-card-foreground">{t('apiKey')}</label>
+                                    <Select value={selectedApiKey} onValueChange={setSelectedApiKey}>
+                                        <SelectTrigger className="rounded-xl">
+                                            <SelectValue placeholder={t('apiKeyPlaceholder')} />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            {(apiKeys ?? []).map((key) => (
+                                                <SelectItem key={key.id} className="rounded-xl" value={key.api_key}>
+                                                    {key.name} <span className="text-muted-foreground text-xs">{key.api_key.slice(0, 16)}...</span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-card-foreground">{t('model')}</label>
+                                    <Select value={selectedModel} onValueChange={setSelectedModel}>
+                                        <SelectTrigger className="rounded-xl">
+                                            <SelectValue placeholder={t('modelPlaceholder')} />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            {(groups ?? []).map((g) => (
+                                                <SelectItem key={g.id} className="rounded-xl" value={g.name}>
+                                                    {g.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
 
                             {/* curl 代码 */}

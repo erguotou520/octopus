@@ -13,6 +13,8 @@ export enum ChannelType {
     Gemini = 3,
     Volcengine = 4,
     OpenAIEmbedding = 5,
+    GithubCopilot = 6,
+    Antigravity = 7,
 }
 
 /**
