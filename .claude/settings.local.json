@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(ssh:*)",
+      "Bash(pip3:*)",
+      "Bash(sqlite3:*)",
+      "Bash(git push:*)"
     ]
   }
 }

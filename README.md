@@ -171,6 +171,27 @@ All configuration options can be overridden via environment variables using the 
 | `OCTOPUS_GITHUB_PAT` | For rate limiting when getting the latest version (optional) |
 | `OCTOPUS_RELAY_MAX_SSE_EVENT_SIZE` | Maximum SSE event size (optional) |
 
+### OAuth Environment Overrides (Optional)
+
+Octopus includes built-in defaults for Copilot and Antigravity OAuth login, so it works out-of-the-box.
+You can still override any value via environment variables.
+
+| Environment Variable | Default |
+|---------------------|---------|
+| `OCTOPUS_COPILOT_CLIENT_ID` | `151ef1b1b0345b2351ca` |
+| `OCTOPUS_COPILOT_SCOPE` | `copilot` |
+| `OCTOPUS_COPILOT_DEVICE_CODE_URL` | `https://github.com/login/device/code` |
+| `OCTOPUS_COPILOT_ACCESS_TOKEN_URL` | `https://github.com/login/oauth/access_token` |
+| `OCTOPUS_ANTIGRAVITY_CLIENT_ID` | *(required, set via environment variable)* |
+| `OCTOPUS_ANTIGRAVITY_CLIENT_SECRET` | *(required, set via environment variable)* |
+| `OCTOPUS_ANTIGRAVITY_AUTHORIZE_URL` | `https://accounts.google.com/o/oauth2/v2/auth` |
+| `OCTOPUS_ANTIGRAVITY_TOKEN_URL` | `https://oauth2.googleapis.com/token` |
+| `OCTOPUS_ANTIGRAVITY_SCOPE` | `https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile` |
+
+Notes:
+- Antigravity uses Octopus's own callback endpoint (`/api/v1/channel/antigravity/oauth/callback`) and polling flow.
+- `ANTIGRAVITY_*` / `COPILOT_*` aliases are also supported for compatibility.
+
 ## 📸 Screenshots
 
 ### 🖥️ Desktop

@@ -2,12 +2,13 @@
 
 import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { Copy, Check, BookOpen, X } from 'lucide-react';
+import { Copy, Check, BookOpen, X, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useGroupList } from '@/api/endpoints/group';
 import { useAPIKeyList } from '@/api/endpoints/apikey';
 import { useSettingList, SettingKey } from '@/api/endpoints/setting';
+import { useChannelList } from '@/api/endpoints/channel';
 import { motion, AnimatePresence } from 'motion/react';
 
 type ApiType = 'openai-chat' | 'openai-responses' | 'anthropic';
@@ -60,9 +61,10 @@ function generateCurl(baseUrl: string, apiKey: string, model: string, apiType: A
 interface DocModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onGoSetting?: () => void;
 }
 
-export function DocModal({ isOpen, onClose }: DocModalProps) {
+export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
     const t = useTranslations('doc');
     const [apiType, setApiType] = useState<ApiType>('openai-chat');
     const [selectedApiKey, setSelectedApiKey] = useState<string>('');
@@ -70,6 +72,7 @@ export function DocModal({ isOpen, onClose }: DocModalProps) {
     const [copied, setCopied] = useState(false);
 
     const { data: groups } = useGroupList();
+    const { data: channels } = useChannelList();
     const { data: apiKeys } = useAPIKeyList();
     const { data: settings } = useSettingList();
 
@@ -82,6 +85,39 @@ export function DocModal({ isOpen, onClose }: DocModalProps) {
         () => generateCurl(baseUrl, selectedApiKey, selectedModel, apiType),
         [baseUrl, selectedApiKey, selectedModel, apiType]
     );
+
+    const invalidGroupNames = useMemo(
+        () => (groups ?? []).filter((g) => /[:：\s]/.test(g.name)).map((g) => g.name),
+        [groups]
+    );
+
+    const modelOptions = useMemo(() => {
+        const options: Array<{ value: string; label: string; kind: 'group' | 'channel' }> = [];
+        const seen = new Set<string>();
+
+        for (const g of groups ?? []) {
+            const value = g.name;
+            if (!value || seen.has(value)) continue;
+            seen.add(value);
+            options.push({ value, label: `${g.name} (group)`, kind: 'group' });
+        }
+
+        for (const c of channels ?? []) {
+            const channel = c.raw;
+            const models = [
+                ...channel.model.split(',').map((m) => m.trim()).filter(Boolean),
+                ...channel.custom_model.split(',').map((m) => m.trim()).filter(Boolean),
+            ];
+            for (const model of Array.from(new Set(models))) {
+                const value = `${channel.name}:${model}`;
+                if (seen.has(value)) continue;
+                seen.add(value);
+                options.push({ value, label: `${channel.name}:${model}`, kind: 'channel' });
+            }
+        }
+
+        return options;
+    }, [groups, channels]);
 
     const handleCopy = async () => {
         try {
@@ -107,7 +143,7 @@ export function DocModal({ isOpen, onClose }: DocModalProps) {
                     />
                     {/* Modal */}
                     <motion.div
-                        className="fixed inset-x-4 bottom-4 top-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[600px] md:max-h-[80vh] z-50 flex flex-col bg-card rounded-3xl border border-border shadow-2xl overflow-hidden"
+                        className="fixed inset-x-4 bottom-4 top-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[640px] md:max-h-[80vh] z-50 flex flex-col bg-card rounded-3xl border border-border shadow-2xl overflow-hidden"
                         initial={{ opacity: 0, scale: 0.95, y: 20 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -132,7 +168,20 @@ export function DocModal({ isOpen, onClose }: DocModalProps) {
                             {/* 第一行：API 地址 + API 类型 */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-sm font-medium text-muted-foreground">{t('baseUrl')}</label>
+                                    <div className="flex items-center gap-1.5">
+                                        <label className="text-sm font-medium text-muted-foreground">{t('baseUrl')}</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                onClose();
+                                                onGoSetting?.();
+                                            }}
+                                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                        >
+                                            <HelpCircle className="h-3.5 w-3.5" />
+                                            {t('baseUrlTip')}
+                                        </button>
+                                    </div>
                                     <div className="font-mono text-sm bg-muted/30 rounded-xl px-3 py-2 text-card-foreground break-all truncate">{baseUrl}</div>
                                 </div>
                                 <div className="space-y-2">
@@ -155,7 +204,7 @@ export function DocModal({ isOpen, onClose }: DocModalProps) {
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-card-foreground">{t('apiKey')}</label>
                                     <Select value={selectedApiKey} onValueChange={setSelectedApiKey}>
-                                        <SelectTrigger className="rounded-xl">
+                                        <SelectTrigger className="rounded-xl w-full">
                                             <SelectValue placeholder={t('apiKeyPlaceholder')} />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl">
@@ -170,19 +219,25 @@ export function DocModal({ isOpen, onClose }: DocModalProps) {
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-card-foreground">{t('model')}</label>
                                     <Select value={selectedModel} onValueChange={setSelectedModel}>
-                                        <SelectTrigger className="rounded-xl">
+                                        <SelectTrigger className="rounded-xl w-full">
                                             <SelectValue placeholder={t('modelPlaceholder')} />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl">
-                                            {(groups ?? []).map((g) => (
-                                                <SelectItem key={g.id} className="rounded-xl" value={g.name}>
-                                                    {g.name}
+                                            {modelOptions.map((opt) => (
+                                                <SelectItem key={opt.value} className="rounded-xl" value={opt.value}>
+                                                    {opt.label}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
                             </div>
+
+                            {invalidGroupNames.length > 0 && (
+                                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                                    {t('groupNameRule')}: {invalidGroupNames.join(', ')}
+                                </div>
+                            )}
 
                             {/* curl 代码 */}
                             <div className="space-y-2">

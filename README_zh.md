@@ -171,6 +171,27 @@ http://localhost:3000
 | `OCTOPUS_GITHUB_PAT` | 用于获取最新版本时的速率限制(可选) |
 | `OCTOPUS_RELAY_MAX_SSE_EVENT_SIZE` | 最大 SSE 事件大小(可选) |
 
+### OAuth 环境变量覆盖（可选）
+
+Octopus 对 Copilot 与 Antigravity 登录内置了默认值，不配置也可直接使用。
+如有需要，可通过环境变量覆盖：
+
+| 环境变量 | 默认值 |
+|----------|--------|
+| `OCTOPUS_COPILOT_CLIENT_ID` | `151ef1b1b0345b2351ca` |
+| `OCTOPUS_COPILOT_SCOPE` | `copilot` |
+| `OCTOPUS_COPILOT_DEVICE_CODE_URL` | `https://github.com/login/device/code` |
+| `OCTOPUS_COPILOT_ACCESS_TOKEN_URL` | `https://github.com/login/oauth/access_token` |
+| `OCTOPUS_ANTIGRAVITY_CLIENT_ID` | *(必需，通过环境变量设置)* |
+| `OCTOPUS_ANTIGRAVITY_CLIENT_SECRET` | *(必需，通过环境变量设置)* |
+| `OCTOPUS_ANTIGRAVITY_AUTHORIZE_URL` | `https://accounts.google.com/o/oauth2/v2/auth` |
+| `OCTOPUS_ANTIGRAVITY_TOKEN_URL` | `https://oauth2.googleapis.com/token` |
+| `OCTOPUS_ANTIGRAVITY_SCOPE` | `https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile` |
+
+说明：
+- Antigravity 使用 Octopus 自己的回调地址（`/api/v1/channel/antigravity/oauth/callback`）和轮询流程。
+- 同时兼容 `ANTIGRAVITY_*` / `COPILOT_*` 别名变量。
+
 
 ## 📸 界面预览
 

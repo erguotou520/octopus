@@ -94,7 +94,11 @@ export function NavBar() {
                 </motion.button>
             </motion.nav>
 
-            <DocModal isOpen={isDocOpen} onClose={() => setIsDocOpen(false)} />
+            <DocModal
+                isOpen={isDocOpen}
+                onClose={() => setIsDocOpen(false)}
+                onGoSetting={() => setActiveItem('setting')}
+            />
         </div>
     )
 }

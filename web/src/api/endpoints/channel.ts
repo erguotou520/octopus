@@ -15,6 +15,7 @@ export enum ChannelType {
     OpenAIEmbedding = 5,
     GithubCopilot = 6,
     Antigravity = 7,
+    Zen = 8,
 }
 
 /**
@@ -423,6 +424,68 @@ export function useTestChannelModelsByConfig() {
         },
         onError: (error) => {
             logger.error('模型(配置)测试失败:', error);
+        },
+    });
+}
+
+// ---- GitHub Copilot Device Flow ----
+
+export type CopilotDeviceCodeResponse = {
+    device_code: string;
+    user_code: string;
+    verification_uri: string;
+    expires_in: number;
+    interval: number;
+};
+
+export type CopilotPollResponse = {
+    access_token?: string;
+    token_type?: string;
+    scope?: string;
+    error?: string;
+};
+
+export function useCopilotRequestDeviceCode() {
+    return useMutation({
+        mutationFn: async () => {
+            return apiClient.post<CopilotDeviceCodeResponse>('/api/v1/channel/copilot/device-code', {});
+        },
+    });
+}
+
+export function useCopilotPollToken() {
+    return useMutation({
+        mutationFn: async (deviceCode: string) => {
+            return apiClient.post<CopilotPollResponse>('/api/v1/channel/copilot/poll-token', { device_code: deviceCode });
+        },
+    });
+}
+
+export type AntigravityOAuthStartResponse = {
+    state: string;
+    auth_url: string;
+};
+
+export type AntigravityOAuthPollResponse = {
+    status: 'pending' | 'authorized' | 'failed';
+    access_token?: string;
+    token_type?: string;
+    scope?: string;
+    error?: string;
+};
+
+export function useAntigravityOAuthStart() {
+    return useMutation({
+        mutationFn: async () => {
+            return apiClient.post<AntigravityOAuthStartResponse>('/api/v1/channel/antigravity/oauth/start', {});
+        },
+    });
+}
+
+export function useAntigravityOAuthPoll() {
+    return useMutation({
+        mutationFn: async (state: string) => {
+            return apiClient.post<AntigravityOAuthPollResponse>('/api/v1/channel/antigravity/oauth/poll', { state });
         },
     });
 }

@@ -239,6 +239,7 @@ export function GroupEditor({
 
     const groupKey = normalizeKey(groupName);
     const regexKey = matchRegex.trim();
+    const invalidGroupName = /[:：\s]/.test(groupName.trim());
 
     const { matchedModelChannels, regexError } = useMemo(() => {
         const parseRegex = (input: string): RegExp => {
@@ -306,7 +307,7 @@ export function GroupEditor({
         setRemovingIds(new Set());
     }, []);
 
-    const isValid = groupKey.length > 0 && selectedMembers.length > 0 && !regexError;
+    const isValid = groupKey.length > 0 && selectedMembers.length > 0 && !regexError && !invalidGroupName;
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -335,6 +336,9 @@ export function GroupEditor({
                                 onChange={(e) => setGroupName(e.target.value)}
                                 className="rounded-xl"
                             />
+                            {invalidGroupName && (
+                                <p className="text-xs text-destructive mt-1">{t('form.nameRule')}</p>
+                            )}
                         </Field>
                         <Field>
                             <FieldLabel htmlFor="group-match-regex">{t('form.matchRegex')}</FieldLabel>

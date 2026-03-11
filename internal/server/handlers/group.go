@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/op"
@@ -12,6 +14,17 @@ import (
 	"github.com/dlclark/regexp2"
 	"github.com/gin-gonic/gin"
 )
+
+func validateGroupName(name string) error {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return nil
+	}
+	if strings.ContainsAny(trimmed, " :：\t\n\r") {
+		return fmt.Errorf("group name cannot contain spaces or colon(:/：)")
+	}
+	return nil
+}
 
 func init() {
 	router.NewGroupRouter("/api/v1/group").
@@ -54,6 +67,10 @@ func createGroup(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := validateGroupName(group.Name); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
 	if group.MatchRegex != "" {
 		_, err := regexp2.Compile(group.MatchRegex, regexp2.ECMAScript)
 		if err != nil {
@@ -73,6 +90,12 @@ func updateGroup(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
+	}
+	if req.Name != nil {
+		if err := validateGroupName(*req.Name); err != nil {
+			resp.Error(c, http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 	if req.MatchRegex != nil {
 		_, err := regexp2.Compile(*req.MatchRegex, regexp2.ECMAScript)

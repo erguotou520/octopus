@@ -34,8 +34,8 @@ var defaultProviders = []Provider{
 	{Name: "质谱 Coding Plan", ChannelType: 0, BaseURL: "https://open.bigmodel.cn/api/coding/paas/v4"},
 	{Name: "GitHub Copilot", ChannelType: 6, BaseURL: "https://api.githubcopilot.com"},
 	{Name: "Vercel AI Gateway", ChannelType: 0, BaseURL: "https://ai.vercel.app/api/v1"},
-	{Name: "OpenCode Zen", ChannelType: 0, BaseURL: "https://api.opencode.ai/v1"},
-	{Name: "Antigravity", ChannelType: 7, BaseURL: "https://api.antigravity.ai/v1"},
+	{Name: "OpenCode Zen", ChannelType: 8, BaseURL: "https://opencode.ai/zen/v1"},
+	{Name: "Antigravity", ChannelType: 7, BaseURL: "https://generativelanguage.googleapis.com/v1beta"},
 }
 
 // readLocalProviders reads providers from the local providers.json file

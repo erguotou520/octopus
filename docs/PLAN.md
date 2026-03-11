@@ -6,14 +6,14 @@
   - [x] base url添加tooltip提示，需要添加/v1结尾
   - [x] 根据渠道自动获取models，显示自动添加模型小按钮
   - [x] 保存按钮左边添加 测试 一级一个 全部测试按钮，和详情tab页的测试功能一样
-  - [ ] 支持更多渠道，包括：
+  - [x] 支持更多渠道，包括：
     - [x] opencode zen
     - [x] 质谱AI
     - [x] 质谱Coding Plan
-    - [ ] Github Copilot，通过授权码方式（channel_type=6已添加，但OAuth Device Flow自动授权流程尚未实现，需手动获取token填入）
+    - [x] Github Copilot，通过授权码方式（OAuth Device Flow 已实现自动授权与轮询填充）
     - [x] OpenRouter
     - [x] Vercel AI Gateway
-    - [ ] Antigravity，参考 https://github.com/jenslys/opencode-gemini-auth 里的反代实现，实现网页方式登录（channel_type=7已添加，但OAuth Web Flow尚未实现）
+    - [x] Antigravity，参考 https://github.com/jenslys/opencode-gemini-auth 里的反代实现，实现网页方式登录（OAuth Web Flow 已实现，支持授权页跳转 + 回调 + 轮询）
   - [ ] 部分渠道不是简单的base_url + key模式，所以go中数据存储模型可能要变更
   - [ ] 每个渠道尽量先从 base_url + /models 获取可用模型，如果这个接口不支持，尽量从 models.dev网站拉取，如果还没有则默认空，让用户自己填
 

@@ -1,4 +1,4 @@
-import { AutoGroupType, ChannelType, type Channel, useFetchModel, useTestChannelModelsByConfig, type TestModelResult } from '@/api/endpoints/channel';
+import { AutoGroupType, ChannelType, type Channel, useFetchModel, useTestChannelModelsByConfig, type TestModelResult, useCopilotRequestDeviceCode, useCopilotPollToken, useAntigravityOAuthStart, useAntigravityOAuthPoll } from '@/api/endpoints/channel';
 import { useProviders } from '@/api/endpoints/providers';
 import {
     Select,
@@ -14,8 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/common/Toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { useTranslations } from 'next-intl';
-import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2, Info } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { RefreshCw, X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2, Info, Copy, ExternalLink } from 'lucide-react';
 
 export interface ChannelKeyFormItem {
     id?: number;
@@ -121,9 +121,177 @@ export function ChannelForm({
     const customModels = formData.custom_model
         ? formData.custom_model.split(',').map((m) => m.trim()).filter(Boolean)
         : [];
+    const [fetchedModels, setFetchedModels] = useState<string[]>([]);
     const [inputValue, setInputValue] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
     const [hasAutoFetched, setHasAutoFetched] = useState(false);
+
+    // ---- GitHub Copilot Device Flow ----
+    const copilotDeviceCodeRef = useRef('');
+    const copilotPollIntervalRef = useRef(5);
+    const copilotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [copilotStatus, setCopilotStatus] = useState<
+        'idle' | 'loading' | 'waiting' | 'authorized' | 'expired' | 'denied' | 'error'
+    >('idle');
+    const [copilotUserCode, setCopilotUserCode] = useState('');
+    const [copilotVerificationUri, setCopilotVerificationUri] = useState('');
+
+    // Keep stable refs to avoid stale closures in async poll callbacks
+    const formDataRef = useRef(formData);
+    useEffect(() => { formDataRef.current = formData; }, [formData]);
+    const onFormDataChangeRef = useRef(onFormDataChange);
+    useEffect(() => { onFormDataChangeRef.current = onFormDataChange; }, [onFormDataChange]);
+
+    const copilotRequestDeviceCode = useCopilotRequestDeviceCode();
+    const copilotPollToken = useCopilotPollToken();
+
+    // ---- Antigravity OAuth Web Flow ----
+    const antigravityStateRef = useRef('');
+    const antigravityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [antigravityStatus, setAntigravityStatus] = useState<'idle' | 'loading' | 'waiting' | 'authorized' | 'error'>('idle');
+    const [antigravityError, setAntigravityError] = useState('');
+    const antigravityOAuthStart = useAntigravityOAuthStart();
+    const antigravityOAuthPoll = useAntigravityOAuthPoll();
+
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (copilotTimerRef.current) clearTimeout(copilotTimerRef.current);
+            if (antigravityTimerRef.current) clearTimeout(antigravityTimerRef.current);
+        };
+    }, []);
+
+    // Reset device flow when switching away from GitHub Copilot type
+    useEffect(() => {
+        if (formData.type !== ChannelType.GithubCopilot) {
+            if (copilotTimerRef.current) {
+                clearTimeout(copilotTimerRef.current);
+                copilotTimerRef.current = null;
+            }
+            setCopilotStatus('idle');
+            copilotDeviceCodeRef.current = '';
+        }
+    }, [formData.type]);
+
+    useEffect(() => {
+        if (formData.type !== ChannelType.Antigravity) {
+            if (antigravityTimerRef.current) {
+                clearTimeout(antigravityTimerRef.current);
+                antigravityTimerRef.current = null;
+            }
+            antigravityStateRef.current = '';
+            setAntigravityStatus('idle');
+            setAntigravityError('');
+        }
+    }, [formData.type]);
+
+    const startPollLoop = useCallback(() => {
+        const poll = async () => {
+            if (!copilotDeviceCodeRef.current) return;
+            try {
+                const result = await copilotPollToken.mutateAsync(copilotDeviceCodeRef.current);
+                if (result.access_token) {
+                    setCopilotStatus('authorized');
+                    onFormDataChangeRef.current({
+                        ...formDataRef.current,
+                        base_urls: [{ url: 'https://api.githubcopilot.com', delay: 0 }],
+                        keys: [{ enabled: true, channel_key: result.access_token }],
+                    });
+                    return; // Stop polling
+                }
+                if (result.error === 'slow_down') {
+                    copilotPollIntervalRef.current += 5;
+                } else if (result.error === 'expired_token') {
+                    setCopilotStatus('expired');
+                    return;
+                } else if (result.error === 'access_denied') {
+                    setCopilotStatus('denied');
+                    return;
+                } else if (result.error && result.error !== 'authorization_pending') {
+                    setCopilotStatus('error');
+                    return;
+                }
+            } catch {
+                // network error, retry
+            }
+            copilotTimerRef.current = setTimeout(poll, copilotPollIntervalRef.current * 1000);
+        };
+        copilotTimerRef.current = setTimeout(poll, copilotPollIntervalRef.current * 1000);
+    }, [copilotPollToken]);
+
+    const handleCopilotStartAuth = async () => {
+        if (copilotTimerRef.current) {
+            clearTimeout(copilotTimerRef.current);
+            copilotTimerRef.current = null;
+        }
+        copilotDeviceCodeRef.current = '';
+        copilotPollIntervalRef.current = 5;
+        setCopilotStatus('loading');
+        try {
+            const result = await copilotRequestDeviceCode.mutateAsync();
+            copilotDeviceCodeRef.current = result.device_code;
+            copilotPollIntervalRef.current = result.interval || 5;
+            setCopilotUserCode(result.user_code);
+            setCopilotVerificationUri(result.verification_uri);
+            setCopilotStatus('waiting');
+            startPollLoop();
+        } catch {
+            setCopilotStatus('error');
+            toast.error(t('copilotError'));
+        }
+    };
+    // ---- End GitHub Copilot Device Flow ----
+
+    const startAntigravityPollLoop = useCallback(() => {
+        const poll = async () => {
+            if (!antigravityStateRef.current) return;
+            try {
+                const result = await antigravityOAuthPoll.mutateAsync(antigravityStateRef.current);
+                if (result.status === 'authorized' && result.access_token) {
+                    setAntigravityStatus('authorized');
+                    const currentBaseUrls = formDataRef.current.base_urls?.filter((u) => u.url.trim()) ?? [];
+                    onFormDataChangeRef.current({
+                        ...formDataRef.current,
+                        base_urls: currentBaseUrls.length > 0 ? currentBaseUrls : [{ url: 'https://api.antigravity.ai/v1', delay: 0 }],
+                        keys: [{ enabled: true, channel_key: result.access_token }],
+                    });
+                    return;
+                }
+                if (result.status === 'failed') {
+                    setAntigravityStatus('error');
+                    setAntigravityError(result.error || t('antigravityAuthFailed'));
+                    return;
+                }
+            } catch {
+                // keep polling on temporary failures
+            }
+            antigravityTimerRef.current = setTimeout(poll, 2000);
+        };
+        antigravityTimerRef.current = setTimeout(poll, 2000);
+    }, [antigravityOAuthPoll, t]);
+
+    const handleAntigravityStartAuth = async () => {
+        if (antigravityTimerRef.current) {
+            clearTimeout(antigravityTimerRef.current);
+            antigravityTimerRef.current = null;
+        }
+        antigravityStateRef.current = '';
+        setAntigravityError('');
+        setAntigravityStatus('loading');
+        try {
+            const result = await antigravityOAuthStart.mutateAsync();
+            antigravityStateRef.current = result.state;
+            setAntigravityStatus('waiting');
+            window.open(result.auth_url, '_blank', 'noopener,noreferrer');
+            startAntigravityPollLoop();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : t('antigravityAuthFailed');
+            setAntigravityStatus('error');
+            setAntigravityError(message);
+            toast.error(t('antigravityAuthFailed'), { description: message });
+        }
+    };
+    // ---- End Antigravity OAuth Web Flow ----
 
     const fetchModel = useFetchModel();
 
@@ -164,6 +332,7 @@ export function ChannelForm({
                         onSuccess: (data) => {
                             if (data && data.length > 0) {
                                 const nextAuto = Array.from(new Set(data.map((m) => m.trim()).filter(Boolean)));
+                                setFetchedModels(nextAuto);
                                 updateModels(nextAuto, customModels);
                             }
                         },
@@ -193,7 +362,8 @@ export function ChannelForm({
             {
                 onSuccess: (data) => {
                     if (data && data.length > 0) {
-                        const nextAuto = Array.from(new Set([...autoModels, ...data].map((m) => m.trim()).filter(Boolean)));
+                        const nextAuto = Array.from(new Set(data.map((m) => m.trim()).filter(Boolean)));
+                        setFetchedModels(nextAuto);
                         updateModels(nextAuto, customModels);
                         toast.success(t('modelRefreshSuccess'));
                     } else {
@@ -222,6 +392,22 @@ export function ChannelForm({
 
     const handleRemoveCustomModel = (model: string) => {
         updateModels(autoModels, customModels.filter(m => m !== model));
+    };
+
+    const handleToggleFetchedModel = (model: string) => {
+        if (autoModels.includes(model)) {
+            updateModels(autoModels.filter((m) => m !== model), customModels);
+        } else {
+            updateModels([...autoModels, model], customModels);
+        }
+    };
+
+    const handleSelectAllFetchedModels = () => {
+        updateModels(fetchedModels, customModels);
+    };
+
+    const handleClearFetchedModels = () => {
+        updateModels(autoModels.filter((m) => !fetchedModels.includes(m)), customModels);
     };
 
     const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -404,33 +590,175 @@ export function ChannelForm({
                             <SelectItem className='rounded-xl' value={String(ChannelType.OpenAIEmbedding)}>{t('typeOpenAIEmbedding')}</SelectItem>
                             <SelectItem className='rounded-xl' value={String(ChannelType.GithubCopilot)}>{t('typeGithubCopilot')}</SelectItem>
                             <SelectItem className='rounded-xl' value={String(ChannelType.Antigravity)}>{t('typeAntigravity')}</SelectItem>
+                            <SelectItem className='rounded-xl' value={String(ChannelType.Zen)}>{t('typeZen')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
             </div>
 
-            {/* GitHub Copilot 特殊提示 */}
+            {/* GitHub Copilot Device Flow Panel */}
             {formData.type === ChannelType.GithubCopilot && (
-                <div className="flex items-start gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
-                    <Info className="h-4 w-4 mt-0.5 shrink-0" />
-                    <div>
-                        <div className="font-medium">{t('githubCopilotHint')}</div>
-                        <div className="mt-1 text-xs opacity-80">{t('githubCopilotHintDesc')}</div>
+                <div className="space-y-3 rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
+                        <Info className="h-4 w-4 shrink-0" />
+                        <span>{t('copilotDeviceFlow')}</span>
                     </div>
+
+                    {copilotStatus === 'idle' && (
+                        <Button
+                            type="button"
+                            onClick={handleCopilotStartAuth}
+                            className="w-full rounded-xl h-11 gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            {t('copilotStartAuth')}
+                        </Button>
+                    )}
+
+                    {copilotStatus === 'loading' && (
+                        <div className="flex justify-center py-4">
+                            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                        </div>
+                    )}
+
+                    {copilotStatus === 'waiting' && (
+                        <div className="space-y-3">
+                            <p className="text-xs text-muted-foreground">{t('copilotUserCodeHint')}</p>
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1 rounded-xl border-2 border-green-500/50 bg-green-500/10 px-4 py-3 text-center">
+                                    <span className="font-mono text-2xl font-bold tracking-widest text-green-700 dark:text-green-400">
+                                        {copilotUserCode}
+                                    </span>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(copilotUserCode);
+                                        toast.success(t('copilotCodeCopied'));
+                                    }}
+                                    className="rounded-xl h-11 w-11 p-0"
+                                    title={t('copilotCodeCopied')}
+                                >
+                                    <Copy className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full rounded-xl h-11 gap-2"
+                                onClick={() => window.open(copilotVerificationUri, '_blank')}
+                            >
+                                <ExternalLink className="h-4 w-4" />
+                                {t('copilotOpenGitHub')}
+                            </Button>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                <span>{t('copilotWaiting')}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {copilotStatus === 'authorized' && (
+                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>{t('copilotSuccess')}</span>
+                        </div>
+                    )}
+
+                    {(copilotStatus === 'expired' || copilotStatus === 'denied' || copilotStatus === 'error') && (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-sm text-destructive">
+                                <XCircle className="h-4 w-4" />
+                                <span>
+                                    {copilotStatus === 'expired'
+                                        ? t('copilotExpired')
+                                        : copilotStatus === 'denied'
+                                          ? t('copilotDenied')
+                                          : t('copilotError')}
+                                </span>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full rounded-xl h-11"
+                                onClick={handleCopilotStartAuth}
+                            >
+                                {t('copilotRetry')}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* Antigravity 特殊提示 */}
+            {/* Antigravity OAuth Web Flow Panel */}
             {formData.type === ChannelType.Antigravity && (
-                <div className="flex items-start gap-2 rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm text-purple-700 dark:text-purple-300">
-                    <Info className="h-4 w-4 mt-0.5 shrink-0" />
-                    <div>
-                        <div className="font-medium">{t('antigravityHint')}</div>
-                        <div className="mt-1 text-xs opacity-80">{t('antigravityHintDesc')}</div>
+                <div className="space-y-3 rounded-xl border border-purple-500/30 bg-purple-500/5 p-4">
+                    <div className="flex items-center gap-2 text-sm font-medium text-purple-700 dark:text-purple-300">
+                        <Info className="h-4 w-4 shrink-0" />
+                        <span>{t('antigravityOAuthTitle')}</span>
                     </div>
+
+                    {antigravityStatus === 'idle' && (
+                        <Button
+                            type="button"
+                            onClick={handleAntigravityStartAuth}
+                            className="w-full rounded-xl h-11 gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                            {t('antigravityStartAuth')}
+                        </Button>
+                    )}
+
+                    {antigravityStatus === 'loading' && (
+                        <div className="flex justify-center py-4">
+                            <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+                        </div>
+                    )}
+
+                    {antigravityStatus === 'waiting' && (
+                        <div className="space-y-2 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                <span>{t('antigravityWaiting')}</span>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full rounded-xl h-10"
+                                onClick={handleAntigravityStartAuth}
+                            >
+                                {t('antigravityOpenAgain')}
+                            </Button>
+                        </div>
+                    )}
+
+                    {antigravityStatus === 'authorized' && (
+                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span>{t('antigravitySuccess')}</span>
+                        </div>
+                    )}
+
+                    {antigravityStatus === 'error' && (
+                        <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-sm text-destructive">
+                                <XCircle className="h-4 w-4" />
+                                <span>{antigravityError || t('antigravityAuthFailed')}</span>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full rounded-xl h-11"
+                                onClick={handleAntigravityStartAuth}
+                            >
+                                {t('antigravityRetry')}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             )}
 
+            {formData.type !== ChannelType.GithubCopilot && formData.type !== ChannelType.Antigravity && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
@@ -486,7 +814,9 @@ export function ChannelForm({
                     ))}
                 </div>
             </div>
+            )}
 
+            {formData.type !== ChannelType.GithubCopilot && formData.type !== ChannelType.Antigravity && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-card-foreground">
@@ -503,6 +833,52 @@ export function ChannelForm({
                         {t('add')}
                     </Button>
                 </div>
+
+                {fetchedModels.length > 0 && (
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <label className="text-xs font-medium text-card-foreground">{t('fetchedModelList')}</label>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleSelectAllFetchedModels}
+                                    className="h-6 px-2 text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-transparent"
+                                >
+                                    {t('modelSelectAllFetched')}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleClearFetchedModels}
+                                    className="h-6 px-2 text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-transparent"
+                                >
+                                    {t('modelClearFetched')}
+                                </Button>
+                            </div>
+                        </div>
+                        <div className="rounded-xl border border-border bg-muted/20 p-2.5 max-h-32 overflow-y-auto">
+                            <div className="flex flex-wrap gap-1.5">
+                                {fetchedModels.map((model) => {
+                                    const selected = autoModels.includes(model);
+                                    return (
+                                        <button
+                                            key={`fetched-${model}`}
+                                            type="button"
+                                            onClick={() => handleToggleFetchedModel(model)}
+                                            className={`px-2 py-1 rounded-lg text-xs border transition-colors ${selected ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:bg-muted'}`}
+                                        >
+                                            {model}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="space-y-2">
                     {(formData.keys ?? []).map((k, idx) => (
                         <div key={k.id ?? `new-${idx}`} className="flex items-center gap-2">
@@ -540,6 +916,7 @@ export function ChannelForm({
                     ))}
                 </div>
             </div>
+            )}
 
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -556,7 +933,7 @@ export function ChannelForm({
                         {t('modelRefresh')}
                     </Button>
                 </div>
-                <input type="hidden" value={formData.model} required />
+                <input type="hidden" value={formData.model} />
 
                 <div className="relative">
                     <Input
@@ -827,7 +1204,7 @@ export function ChannelForm({
                     <Button
                         type="submit"
                         disabled={isPending}
-                        className="flex-1 rounded-2xl h-12"
+                        className="flex-3 rounded-2xl h-12"
                     >
                         {isPending ? pendingText : submitText}
                     </Button>

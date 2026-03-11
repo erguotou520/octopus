@@ -256,7 +256,7 @@ func testChannelModels(c *gin.Context) {
 		}
 
 		// 获取 outbound adapter
-		outboundAdapter := transformerOutbound.Get(channel.Type)
+		outboundAdapter := transformerOutbound.GetForModel(transformerOutbound.OutboundType(channel.Type), modelName)
 		if outboundAdapter == nil {
 			result.Passed = false
 			result.Error = "Unsupported channel type"
@@ -387,7 +387,7 @@ func testChannelModelsByConfig(c *gin.Context) {
 			continue
 		}
 
-		outboundAdapter := transformerOutbound.Get(channel.Type)
+		outboundAdapter := transformerOutbound.GetForModel(transformerOutbound.OutboundType(req.Type), modelName)
 		if outboundAdapter == nil {
 			result.Passed = false
 			result.Error = "Unsupported channel type"

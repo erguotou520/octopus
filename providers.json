@@ -52,13 +52,13 @@
   },
   {
     "name": "OpenCode Zen",
-    "channel_type": 0,
-    "base_url": "https://api.opencode.ai/v1"
+    "channel_type": 8,
+    "base_url": "https://opencode.ai/zen/v1"
   },
   {
     "name": "Antigravity",
     "channel_type": 7,
-    "base_url": "https://api.antigravity.ai/v1",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta",
     "auth_type": "oauth_web"
   }
 ]

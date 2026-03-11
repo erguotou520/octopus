@@ -1,6 +1,8 @@
 package outbound
 
 import (
+	"strings"
+
 	"github.com/bestruirui/octopus/internal/transformer/model"
 	"github.com/bestruirui/octopus/internal/transformer/outbound/authropic"
 	"github.com/bestruirui/octopus/internal/transformer/outbound/gemini"
@@ -19,6 +21,7 @@ const (
 	OutboundTypeOpenAIEmbedding
 	OutboundTypeGithubCopilot // 6: GitHub Copilot (OAuth Device Flow, uses OpenAI Chat format)
 	OutboundTypeAntigravity   // 7: Antigravity (OAuth Web Flow reverse proxy)
+	OutboundTypeZen           // 8: OpenCode Zen (model-aware protocol routing: Claude→Anthropic, GPT→Responses, Gemini→Gemini, others→Chat)
 )
 
 // EmbeddingChannelTypes 定义支持 embedding 请求的 channel 类型集合
@@ -35,6 +38,7 @@ var ChatChannelTypes = map[OutboundType]bool{
 	OutboundTypeVolcengine:     true,
 	OutboundTypeGithubCopilot:  true,
 	OutboundTypeAntigravity:    true,
+	OutboundTypeZen:            true,
 }
 
 // IsEmbeddingChannelType 判断 channel 类型是否支持 embedding 请求
@@ -65,4 +69,27 @@ func Get(outboundType OutboundType) model.Outbound {
 		return factory()
 	}
 	return nil
+}
+
+// GetForModel 获取出站适配器，对 Zen 渠道按模型名称动态路由到正确的协议适配器。
+// Zen 路由规则：
+//   - claude-* → Anthropic Messages 格式 (/zen/v1/messages)
+//   - gpt-*    → OpenAI Responses 格式 (/zen/v1/responses)
+//   - gemini-* → Gemini 格式
+//   - 其他     → OpenAI Chat 格式 (/zen/v1/chat/completions)
+func GetForModel(channelType OutboundType, modelName string) model.Outbound {
+	if channelType != OutboundTypeZen {
+		return Get(channelType)
+	}
+	lower := strings.ToLower(modelName)
+	switch {
+	case strings.HasPrefix(lower, "claude-"):
+		return Get(OutboundTypeAnthropic)
+	case strings.HasPrefix(lower, "gpt-"):
+		return Get(OutboundTypeOpenAIResponse)
+	case strings.HasPrefix(lower, "gemini-"):
+		return Get(OutboundTypeGemini)
+	default:
+		return Get(OutboundTypeOpenAIChat)
+	}
 }

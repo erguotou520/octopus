@@ -106,8 +106,8 @@ func Handler(inboundType inbound.InboundType, c *gin.Context) {
 			continue
 		}
 
-		// 出站适配器
-		outAdapter := outbound.Get(channel.Type)
+		// 出站适配器（Zen 渠道按模型动态选择协议）
+		outAdapter := outbound.GetForModel(channel.Type, internalRequest.Model)
 		if outAdapter == nil {
 			iter.Skip(channel.ID, usedKey.ID, channel.Name, fmt.Sprintf("unsupported channel type: %d", channel.Type))
 			continue
