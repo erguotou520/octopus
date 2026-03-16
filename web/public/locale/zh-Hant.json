@@ -140,8 +140,8 @@
     },
     "language": {
       "label": "語言",
-      "zh_hans": "簡體中文",
-      "zh_hant": "繁體中文",
+      "zh-Hans": "簡體中文",
+      "zh-Hant": "繁體中文",
       "en": "English"
     },
     "proxyUrl": {

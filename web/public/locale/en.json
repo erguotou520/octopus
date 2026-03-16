@@ -140,8 +140,8 @@
     },
     "language": {
       "label": "Language",
-      "zh_hans": "Chinese (Simplified)",
-      "zh_hant": "Chinese (Traditional)",
+      "zh-Hans": "Chinese (Simplified)",
+      "zh-Hant": "Chinese (Traditional)",
       "en": "English"
     },
     "proxyUrl": {
