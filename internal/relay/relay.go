@@ -341,17 +341,26 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 		err  error
 	}
 	results := make(chan sseReadResult, 1)
+	stopReading := make(chan struct{})
 	go func() {
 		defer close(results)
 		readCfg := &sse.ReadConfig{MaxEventSize: maxSSEEventSize}
 		for ev, err := range sse.Read(response.Body, readCfg) {
 			if err != nil {
-				results <- sseReadResult{err: err}
+				select {
+				case results <- sseReadResult{err: err}:
+				case <-stopReading:
+				}
 				return
 			}
-			results <- sseReadResult{data: ev.Data}
+			select {
+			case results <- sseReadResult{data: ev.Data}:
+			case <-stopReading:
+				return
+			}
 		}
 	}()
+	defer close(stopReading)
 
 	var firstTokenTimer *time.Timer
 	var firstTokenC <-chan time.Time
@@ -385,7 +394,11 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 			}
 
 			data, err := ra.transformStreamData(ctx, r.data)
-			if err != nil || len(data) == 0 {
+			if err != nil {
+				log.Warnf("failed to transform stream data: %v", err)
+				return fmt.Errorf("failed to transform stream data: %w", err)
+			}
+			if len(data) == 0 {
 				continue
 			}
 			if firstToken {
@@ -403,7 +416,10 @@ func (ra *relayAttempt) handleStreamResponse(ctx context.Context, response *http
 				}
 			}
 
-			ra.c.Writer.Write(data)
+			if _, err := ra.c.Writer.Write(data); err != nil {
+				log.Infof("client disconnected during stream write: %v", err)
+				return nil
+			}
 			ra.c.Writer.Flush()
 		}
 	}

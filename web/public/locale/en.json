@@ -329,8 +329,8 @@
     },
     "apiBaseUrl": {
       "label": "System API Base URL",
-      "placeholder": "http://localhost:8080",
-      "hint": "Used in API docs curl example. Default: http://localhost:8080"
+      "placeholder": "http://localhost:8384",
+      "hint": "Used in API docs curl example. Default: http://localhost:8384"
     }
   },
   "group": {

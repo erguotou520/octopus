@@ -30,7 +30,7 @@ type Setting struct {
 func DefaultSettings() []Setting {
 	return []Setting{
 		{Key: SettingKeyProxyURL, Value: ""},
-		{Key: SettingKeyAPIBaseURL, Value: "http://localhost:8080"}, // 默认系统 API 地址
+		{Key: SettingKeyAPIBaseURL, Value: "http://localhost:8384"}, // 默认系统 API 地址
 		{Key: SettingKeyStatsSaveInterval, Value: "10"},             // 默认10分钟保存一次统计信息
 		{Key: SettingKeyCORSAllowOrigins, Value: ""},                // CORS 默认不允许跨域，设置为 "*" 才允许所有来源
 		{Key: SettingKeyModelInfoUpdateInterval, Value: "24"},       // 默认24小时更新一次模型信息

@@ -5,7 +5,10 @@
       "Bash(ssh:*)",
       "Bash(pip3:*)",
       "Bash(sqlite3:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(go run:*)",
+      "Bash(ls:*)",
+      "Bash(node:*)"
     ]
   }
 }

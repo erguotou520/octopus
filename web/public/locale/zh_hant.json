@@ -329,8 +329,8 @@
     },
     "apiBaseUrl": {
       "label": "系統 API 地址",
-      "placeholder": "http://localhost:8080",
-      "hint": "用於文件彈框中的 curl 範例地址，預設為 http://localhost:8080"
+      "placeholder": "http://localhost:8384",
+      "hint": "用於文件彈框中的 curl 範例地址，預設為 http://localhost:8384"
     }
   },
   "group": {

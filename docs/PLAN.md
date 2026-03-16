@@ -14,7 +14,7 @@
     - [x] OpenRouter
     - [x] Vercel AI Gateway
     - [x] Antigravity，参考 https://github.com/jenslys/opencode-gemini-auth 里的反代实现，实现网页方式登录（OAuth Web Flow 已实现，支持授权页跳转 + 回调 + 轮询）
-  - [ ] 部分渠道不是简单的base_url + key模式，所以go中数据存储模型可能要变更
-  - [ ] 每个渠道尽量先从 base_url + /models 获取可用模型，如果这个接口不支持，尽量从 models.dev网站拉取，如果还没有则默认空，让用户自己填
+  - [x] 部分渠道不是简单的base_url + key模式，所以go中数据存储模型可能要变更
+  - [x] 每个渠道尽量先从 base_url + /models 获取可用模型，如果这个接口不支持，尽量从 models.dev网站拉取，如果还没有则默认空，让用户自己填
 
 - [x] 全局设置添加一个设置系统api地址的地方，比如设置为 http://192.168.1.100:3000，默认 http://localhost:3000。然后在全局左侧navbar中底下添加一个 doc 图标，点击后弹框，里面显示一个curl code代码区域，告知用户如何使用当前api。其中curl部分里的 base_url 就是全局设置的，api_key可以点击选择，model可以选择分组名，code添加复制按钮可复制。类型可以选择 OpenAI Chat(/chat/completions)或 OpenAI Responses(/responses) 或 Anthropic（/messages），不同类型会在结尾添加不同的api后缀，参数格式也不一样，具体可参考 @internal/server/handlers/relay.go

@@ -2,7 +2,7 @@ services:
   octopus:
     image: bestrui/octopus
     ports:
-       - '8080:8080'
+       - '8384:8384'
     volumes:      
        - '/path/to/data:/app/data'
     container_name: octopus
