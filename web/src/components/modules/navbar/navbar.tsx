@@ -70,7 +70,7 @@ export function NavBar() {
                 })}
 
                 {/* 分隔线 */}
-                <div className="w-6 h-px md:h-px md:w-6 bg-sidebar-border/50 mx-auto" />
+                <div className="w-px h-6 md:h-px md:w-6 bg-sidebar-border/50 mx-auto" />
 
                 {/* 文档按钮 */}
                 <motion.button

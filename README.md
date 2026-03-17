@@ -250,26 +250,22 @@ Notes:
 <td align="center"><b>Channel</b></td>
 <td align="center"><b>Group</b></td>
 <td align="center"><b>Price</b></td>
-<td align="center"><b>Logs</b></td>
-<td align="center"><b>Settings</b></td>
 </tr>
 <tr>
 <td><img src="web/public/screenshot/mobile-home.png" alt="Mobile Home" width="140"></td>
 <td><img src="web/public/screenshot/mobile-channel.png" alt="Mobile Channel" width="140"></td>
 <td><img src="web/public/screenshot/mobile-group.png" alt="Mobile Group" width="140"></td>
 <td><img src="web/public/screenshot/mobile-price.png" alt="Mobile Price" width="140"></td>
-<td><img src="web/public/screenshot/mobile-log.png" alt="Mobile Logs" width="140"></td>
-<td><img src="web/public/screenshot/mobile-setting.png" alt="Mobile Settings" width="140"></td>
 </tr>
 <tr>
+<td align="center"><b>Logs</b></td>
+<td align="center"><b>Settings</b></td>
 <td align="center"><b>Curl usage</b></td>
 <td align="center"><b>CC Switch</b></td>
-<td align="center"></td>
-<td align="center"></td>
-<td align="center"></td>
-<td align="center"></td>
 </tr>
 <tr>
+<td><img src="web/public/screenshot/mobile-log.png" alt="Mobile Logs" width="140"></td>
+<td><img src="web/public/screenshot/mobile-setting.png" alt="Mobile Settings" width="140"></td>
 <td><img src="web/public/screenshot/mobile-api-curl.png" alt="Mobile Curl Usage" width="140"></td>
 <td><img src="web/public/screenshot/mobile-api-cc.png" alt="Mobile CC Switch" width="140"></td>
 <td></td>
