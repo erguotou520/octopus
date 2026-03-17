@@ -608,8 +608,8 @@
     "typeAnthropic": "Anthropic (/v1/messages)",
     "apiKey": "API Key",
     "apiKeyPlaceholder": "Select API key",
-    "model": "Model / Group",
-    "modelPlaceholder": "Select group name",
+    "group": "Group",
+    "groupPlaceholder": "Select group name",
     "curlCode": "curl Example",
     "copy": "Copy",
     "copied": "Copied",
@@ -619,6 +619,16 @@
     "endpointAnthropic": "Anthropic Messages format",
     "endpointEmbeddings": "Embeddings format",
     "baseUrlTip": "Go to global settings",
-    "groupNameRule": "Group names containing spaces or colons (: / ：) cannot be used in \"channel:model\" mode"
+    "groupNameRule": "Group names containing spaces or colons (: / ：) cannot be used in \"channel:model\" mode",
+    "tabCurl": "curl",
+    "tabCCSwitch": "CC Switch",
+    "ccswitchCliTool": "CLI Tool",
+    "ccswitchName": "Name",
+    "ccswitchNamePlaceholder": "e.g. My Claude",
+    "ccswitchMainModel": "Main Model",
+    "ccswitchHaikuModel": "Haiku Model",
+    "ccswitchSonnetModel": "Sonnet Model",
+    "ccswitchOpusModel": "Opus Model",
+    "ccswitchImport": "Import to CC Switch"
   }
 }

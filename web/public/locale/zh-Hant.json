@@ -608,8 +608,8 @@
     "typeAnthropic": "Anthropic (/v1/messages)",
     "apiKey": "API 金鑰",
     "apiKeyPlaceholder": "選擇金鑰",
-    "model": "模型/分組",
-    "modelPlaceholder": "選擇分組名稱",
+    "group": "分組",
+    "groupPlaceholder": "選擇分組名稱",
     "curlCode": "curl 範例",
     "copy": "複製",
     "copied": "已複製",
@@ -619,6 +619,16 @@
     "endpointAnthropic": "Anthropic Messages 格式",
     "endpointEmbeddings": "Embedding 格式",
     "baseUrlTip": "前往全域設定修改",
-    "groupNameRule": "包含空白或冒號(:/：)的分組名不能用於「渠道:模型」模式"
+    "groupNameRule": "包含空白或冒號(:/：)的分組名不能用於「渠道:模型」模式",
+    "tabCurl": "curl 用法",
+    "tabCCSwitch": "CC Switch",
+    "ccswitchCliTool": "CLI 工具",
+    "ccswitchName": "名稱",
+    "ccswitchNamePlaceholder": "例：My Claude",
+    "ccswitchMainModel": "主模型",
+    "ccswitchHaikuModel": "Haiku 模型",
+    "ccswitchSonnetModel": "Sonnet 模型",
+    "ccswitchOpusModel": "Opus 模型",
+    "ccswitchImport": "匯入 CC Switch"
   }
 }

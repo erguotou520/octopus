@@ -251,9 +251,52 @@ docker compose up -d
 docker run -d \
   -v /path/to/data:/app/data \
   -p 8080:8080 \
-  bestrui/octopus
+  erguotou520/octopus
 ```
 
 ## 贡献指南
 
 请参考 [CONTRIBUTING_zh.md](CONTRIBUTING_zh.md) 了解如何贡献代码。
+
+## 上游同步指南
+
+本仓库（`erguotou520/octopus`）是 `bestruirui/octopus` 的个人分支，包含额外的功能扩展。
+
+### 初始配置（已完成）
+
+```bash
+git remote add upstream https://github.com/bestruirui/octopus.git
+git fetch upstream
+```
+
+### 合并上游更新
+
+```bash
+# 拉取上游最新代码
+git fetch upstream
+
+# 查看上游有哪些 本分支尚未包含的提交
+git log --oneline upstream/dev ^HEAD
+
+# 切到当前开发分支后合并
+git checkout feat/erguotou
+git merge upstream/dev --no-ff -m "chore: merge upstream dev into feat/erguotou"
+
+# 如果出现冲突，解决冲突后提交
+# git add .
+# git commit
+```
+
+### 智能合并策略
+
+- **优先选策略**：对上游的 bugfix/feature 提交选择性 `cherry-pick` 而非整体 merge，可减少冲突
+- **冲突优先级**：凡是 `internal/transformer/outbound/antigravity/`、`internal/server/handlers/antigravity.go` 等 erguotou 新增的文件，解决冲突时优先保留本分支版本
+- **定期同步建议**：每当上游发布新 tag（`v*`）时同步一次
+
+### 查看两仓库差异
+
+```bash
+git log upstream/dev ^HEAD --oneline        # 上游有、本地没有的提交
+git log HEAD ^upstream/dev --oneline        # 本地有、上游没有的提交（您的扩展功能）
+```
+

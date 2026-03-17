@@ -30,14 +30,24 @@
     "base_url": "https://openrouter.ai/api/v1"
   },
   {
-    "name": "质谱 AI",
+    "name": "质谱 AI (OpenAI 兼容)",
     "channel_type": 0,
     "base_url": "https://open.bigmodel.cn/api/paas/v4"
   },
   {
-    "name": "质谱 Coding Plan",
+    "name": "质谱 AI (Anthropic 兼容)",
+    "channel_type": 2,
+    "base_url": "https://open.bigmodel.cn/api/anthropic/v1"
+  },
+  {
+    "name": "质谱 Coding Plan (OpenAI 兼容)",
     "channel_type": 0,
     "base_url": "https://open.bigmodel.cn/api/coding/paas/v4"
+  },
+  {
+    "name": "质谱 Coding Plan (Anthropic 兼容，适合Claude Code)",
+    "channel_type": 2,
+    "base_url": "https://open.bigmodel.cn/api/anthropic/v1"
   },
   {
     "name": "GitHub Copilot",

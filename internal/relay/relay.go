@@ -33,7 +33,7 @@ func Handler(inboundType inbound.InboundType, c *gin.Context) {
 	if supportedModels != "" {
 		supportedModelsArray := strings.Split(supportedModels, ",")
 		if !slices.Contains(supportedModelsArray, internalRequest.Model) {
-			resp.Error(c, http.StatusBadRequest, "model not supported")
+			resp.Error(c, http.StatusBadRequest, "model not allowed for this API key")
 			return
 		}
 	}
