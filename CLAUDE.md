@@ -202,7 +202,7 @@ go run main.go start
 
 # 启动前端（另一终端）
 cd web
-NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8384" pnpm run dev
+NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" pnpm run dev
 ```
 
 ### 构建
@@ -250,7 +250,7 @@ docker compose up -d
 # 或直接运行
 docker run -d \
   -v /path/to/data:/app/data \
-  -p 8384:8384 \
+  -p 8080:8080 \
   bestrui/octopus
 ```
 

@@ -15,7 +15,8 @@ import { toast } from '@/components/common/Toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw, X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2, Info, Copy, ExternalLink } from 'lucide-react';
+import { X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2, Info, Copy, ExternalLink, Check, Search } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 export interface ChannelKeyFormItem {
     id?: number;
@@ -76,6 +77,7 @@ export function ChannelForm({
     idPrefix = 'channel',
 }: ChannelFormProps) {
     const t = useTranslations('channel.form');
+    const tModels = useTranslations('channel.models');
 
     // Fetch providers for auto-fill base_url
     const { data: providers } = useProviders();
@@ -124,7 +126,8 @@ export function ChannelForm({
     const [fetchedModels, setFetchedModels] = useState<string[]>([]);
     const [inputValue, setInputValue] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
-    const [hasAutoFetched, setHasAutoFetched] = useState(false);
+    const [showModelSelectDialog, setShowModelSelectDialog] = useState(false);
+    const [dialogSelectedModels, setDialogSelectedModels] = useState<Set<string>>(new Set());
 
     // ---- GitHub Copilot Device Flow ----
     const copilotDeviceCodeRef = useRef('');
@@ -252,7 +255,7 @@ export function ChannelForm({
                     const currentBaseUrls = formDataRef.current.base_urls?.filter((u) => u.url.trim()) ?? [];
                     onFormDataChangeRef.current({
                         ...formDataRef.current,
-                        base_urls: currentBaseUrls.length > 0 ? currentBaseUrls : [{ url: 'https://api.antigravity.ai/v1', delay: 0 }],
+                        base_urls: currentBaseUrls.length > 0 ? currentBaseUrls : [{ url: 'https://cloudcode-pa.googleapis.com', delay: 0 }],
                         keys: [{ enabled: true, channel_key: result.access_token }],
                     });
                     return;
@@ -305,77 +308,16 @@ export function ChannelForm({
         onFormDataChange({ ...formData, model, custom_model });
     };
 
-    // Auto-fetch models when base_url and key are available
-    useEffect(() => {
-        // Only auto-fetch once per form session
-        if (hasAutoFetched) return;
 
-        const hasBaseUrl = formData.base_urls?.some((u) => u.url.trim());
-        const hasKey = formData.keys?.some((k) => k.channel_key.trim());
 
-        if (hasBaseUrl && hasKey && formData.model === '') {
-            const timer = setTimeout(() => {
-                setHasAutoFetched(true);
-                fetchModel.mutate(
-                    {
-                        type: formData.type,
-                        base_urls: formData.base_urls,
-                        keys: formData.keys
-                            .filter((k) => k.channel_key.trim())
-                            .map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
-                        proxy: formData.proxy,
-                        channel_proxy: formData.channel_proxy?.trim() || null,
-                        match_regex: formData.match_regex.trim() || null,
-                        custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
-                    },
-                    {
-                        onSuccess: (data) => {
-                            if (data && data.length > 0) {
-                                const nextAuto = Array.from(new Set(data.map((m) => m.trim()).filter(Boolean)));
-                                setFetchedModels(nextAuto);
-                                updateModels(nextAuto, customModels);
-                            }
-                        },
-                        // Silent fail for auto-fetch, don't show error toast
-                    }
-                );
-            }, 500); // Debounce to avoid frequent requests
 
-            return () => clearTimeout(timer);
-        }
-    }, [formData.base_urls, formData.keys, hasAutoFetched]);
 
-    const handleRefreshModels = async () => {
-        if (!formData.base_urls?.[0]?.url || !effectiveKey) return;
-        fetchModel.mutate(
-            {
-                type: formData.type,
-                base_urls: formData.base_urls,
-                keys: formData.keys
-                    .filter((k) => k.channel_key.trim())
-                    .map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
-                proxy: formData.proxy,
-                channel_proxy: formData.channel_proxy?.trim() || null,
-                match_regex: formData.match_regex.trim() || null,
-                custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
-            },
-            {
-                onSuccess: (data) => {
-                    if (data && data.length > 0) {
-                        const nextAuto = Array.from(new Set(data.map((m) => m.trim()).filter(Boolean)));
-                        setFetchedModels(nextAuto);
-                        updateModels(nextAuto, customModels);
-                        toast.success(t('modelRefreshSuccess'));
-                    } else {
-                        toast.warning(t('modelRefreshEmpty'));
-                    }
-                },
-                onError: (error) => {
-                    const errorMessage = error instanceof Error ? error.message : String(error);
-                    toast.error(t('modelRefreshFailed'), { description: errorMessage });
-                },
-            }
-        );
+    const handleConfirmModelSelect = () => {
+        const selected = Array.from(dialogSelectedModels);
+        // 从弹框选择的模型按“手动模型”处理，保持视觉样式一致
+        const newCustom = Array.from(new Set([...customModels, ...selected]));
+        updateModels(autoModels, newCustom);
+        setShowModelSelectDialog(false);
     };
 
     const handleAddModel = (model: string) => {
@@ -535,6 +477,7 @@ export function ChannelForm({
     })();
 
     return (
+        <>
         <form onSubmit={onSubmit} className="space-y-4 px-1">
             {/* Provider 快速预设选择 */}
             {providers && providers.length > 0 && (
@@ -700,6 +643,8 @@ export function ChannelForm({
                     </div>
 
                     {antigravityStatus === 'idle' && (
+                        <>
+                        <p className="text-xs text-muted-foreground">{t('antigravityConfigHint')}</p>
                         <Button
                             type="button"
                             onClick={handleAntigravityStartAuth}
@@ -707,6 +652,7 @@ export function ChannelForm({
                         >
                             {t('antigravityStartAuth')}
                         </Button>
+                        </>
                     )}
 
                     {antigravityStatus === 'loading' && (
@@ -834,51 +780,6 @@ export function ChannelForm({
                     </Button>
                 </div>
 
-                {fetchedModels.length > 0 && (
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <label className="text-xs font-medium text-card-foreground">{t('fetchedModelList')}</label>
-                            <div className="flex gap-2">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleSelectAllFetchedModels}
-                                    className="h-6 px-2 text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-transparent"
-                                >
-                                    {t('modelSelectAllFetched')}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleClearFetchedModels}
-                                    className="h-6 px-2 text-xs text-muted-foreground/60 hover:text-muted-foreground hover:bg-transparent"
-                                >
-                                    {t('modelClearFetched')}
-                                </Button>
-                            </div>
-                        </div>
-                        <div className="rounded-xl border border-border bg-muted/20 p-2.5 max-h-32 overflow-y-auto">
-                            <div className="flex flex-wrap gap-1.5">
-                                {fetchedModels.map((model) => {
-                                    const selected = autoModels.includes(model);
-                                    return (
-                                        <button
-                                            key={`fetched-${model}`}
-                                            type="button"
-                                            onClick={() => handleToggleFetchedModel(model)}
-                                            className={`px-2 py-1 rounded-lg text-xs border transition-colors ${selected ? 'bg-primary text-primary-foreground border-primary' : 'bg-background text-muted-foreground border-border hover:bg-muted'}`}
-                                        >
-                                            {model}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 <div className="space-y-2">
                     {(formData.keys ?? []).map((k, idx) => (
                         <div key={k.id ?? `new-${idx}`} className="flex items-center gap-2">
@@ -921,17 +822,58 @@ export function ChannelForm({
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-card-foreground">{t('model')}</label>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleRefreshModels}
-                        disabled={!formData.base_urls?.[0]?.url || !effectiveKey || fetchModel.isPending}
-                        className="h-6 px-2 text-xs text-muted-foreground/50 hover:text-muted-foreground hover:bg-transparent"
-                    >
-                        <RefreshCw className={`h-3 w-3 mr-1 ${fetchModel.isPending ? 'animate-spin' : ''}`} />
-                        {t('modelRefresh')}
-                    </Button>
+                    <div className="flex items-center gap-1">
+                        {(effectiveKey && formData.base_urls?.[0]?.url) && (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={fetchModel.isPending}
+                                onClick={() => {
+                                    // 每次打开都按当前已选模型重建预选状态，避免残留历史选择
+                                    setDialogSelectedModels(new Set(fetchedModels.filter((model) => allModels.includes(model))));
+                                    // 立即打开弹框
+                                    setShowModelSelectDialog(true);
+                                    // 如果还没有数据，则在后台请求
+                                    if (fetchedModels.length === 0) {
+                                        fetchModel.mutate(
+                                            {
+                                                type: formData.type,
+                                                base_urls: formData.base_urls,
+                                                keys: formData.keys
+                                                    .filter((k) => k.channel_key.trim())
+                                                    .map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
+                                                proxy: formData.proxy,
+                                                channel_proxy: formData.channel_proxy?.trim() || null,
+                                                match_regex: formData.match_regex.trim() || null,
+                                                custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
+                                            },
+                                            {
+                                                onSuccess: (data) => {
+                                                    if (data && data.length > 0) {
+                                                        const nextFetched = Array.from(new Set(data.map((m) => m.trim()).filter(Boolean)));
+                                                        setFetchedModels(nextFetched);
+                                                        // 拉取后再基于当前模型列表同步一次预选
+                                                        setDialogSelectedModels(new Set(nextFetched.filter((model) => allModels.includes(model))));
+                                                    } else {
+                                                        toast.warning(t('modelRefreshEmpty'));
+                                                    }
+                                                },
+                                                onError: (error) => {
+                                                    const errorMessage = error instanceof Error ? error.message : String(error);
+                                                    toast.error(t('modelRefreshFailed'), { description: errorMessage });
+                                                },
+                                            }
+                                        );
+                                    }
+                                }}
+                                className="h-6 px-2 text-xs text-muted-foreground/70 hover:text-muted-foreground hover:bg-transparent gap-1"
+                            >
+                                <Search className="h-3 w-3" />
+                                {t('selectModels')}
+                            </Button>
+                        )}
+                    </div>
                 </div>
                 <input type="hidden" value={formData.model} />
 
@@ -983,7 +925,7 @@ export function ChannelForm({
                         {(autoModels.length + customModels.length) > 0 ? (
                             <div className="flex flex-wrap gap-1.5">
                                 {autoModels.map((model) => (
-                                    <Badge key={model} variant="secondary" className="bg-muted hover:bg-muted/80">
+                                    <Badge key={model} className="bg-primary hover:bg-primary/90">
                                         {model}
                                         <button
                                             type="button"
@@ -1242,5 +1184,90 @@ export function ChannelForm({
                 </div>
             )}
         </form>
+        {/* 选择模型弹框 - 放在 form 外避免事件冒泡关闭外层弹框 */}
+        <Dialog open={showModelSelectDialog} onOpenChange={setShowModelSelectDialog}>
+            <DialogContent className="max-w-md flex flex-col max-h-[80vh] overflow-hidden">
+                <DialogHeader className="shrink-0">
+                    <div className="flex items-center justify-between">
+                        <DialogTitle>{t('fetchedModelList')}</DialogTitle>
+                        {fetchModel.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                    </div>
+                </DialogHeader>
+                {/* 全选行 */}
+                {fetchModel.isPending ? (
+                    <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                ) : fetchedModels.length === 0 ? (
+                    <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                        {tModels('noModels')}
+                    </div>
+                ) : (
+                    <>
+                    <div
+                        className="flex items-center gap-2 px-1 py-1 cursor-pointer hover:bg-accent/5 rounded-lg shrink-0"
+                        onClick={() => {
+                            if (dialogSelectedModels.size === fetchedModels.length) {
+                                setDialogSelectedModels(new Set());
+                            } else {
+                                setDialogSelectedModels(new Set(fetchedModels));
+                            }
+                        }}
+                    >
+                        <div className="size-4 shrink-0 rounded border border-primary flex items-center justify-center">
+                            {dialogSelectedModels.size === fetchedModels.length && fetchedModels.length > 0 && (
+                                <Check className="h-3 w-3 text-primary" />
+                            )}
+                        </div>
+                        <span className="text-sm font-medium">{t('modelSelectAllFetched')}</span>
+                    </div>
+                <div className="border-t shrink-0" />
+                {/* 模型列表 - 直接作为 flex 子项，自身滑动 */}
+                <div
+                    className="flex-1 min-h-0 overflow-y-auto space-y-0.5 py-1 dialog-model-scrollbar"
+                    style={{ scrollbarWidth: 'thin', msOverflowStyle: 'auto' }}
+                >
+                    {fetchedModels.map((model) => (
+                        <div
+                            key={model}
+                            className="flex items-center gap-2 px-1 py-1.5 cursor-pointer hover:bg-accent/5 rounded-lg"
+                            onClick={() => {
+                                const next = new Set(dialogSelectedModels);
+                                if (next.has(model)) next.delete(model);
+                                else next.add(model);
+                                setDialogSelectedModels(next);
+                            }}
+                        >
+                            <div className="size-4 shrink-0 rounded border border-primary flex items-center justify-center">
+                                {dialogSelectedModels.has(model) && (
+                                    <Check className="h-3 w-3 text-primary" />
+                                )}
+                            </div>
+                            <span className="font-mono text-sm">{model}</span>
+                        </div>
+                    ))}
+                    </div>
+                    </>
+                )}
+                <DialogFooter className="shrink-0">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowModelSelectDialog(false)}
+                        className="rounded-xl"
+                    >
+                        {t('selectModelsCancel')}
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleConfirmModelSelect}
+                        className="rounded-xl"
+                    >
+                        {t('selectModelsConfirm')}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }

@@ -32,7 +32,7 @@
 Run directly:
 
 ```bash
-docker run -d --name octopus -v /path/to/data:/app/data -p 8384:8384 bestrui/octopus
+docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 bestrui/octopus
 ```
 
 Or use docker compose:
@@ -75,7 +75,7 @@ go run main.go start
 **Development Mode**
 
 ```bash
-cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8384" pnpm run dev
+cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" pnpm run dev
 ## Open a new terminal, start the backend service
 go run main.go start
 ## Access the frontend at
@@ -84,7 +84,7 @@ http://localhost:3000
 
 ### 🔐 Default Credentials
 
-After first launch, visit http://localhost:8384 and log in to the management panel with:
+After first launch, visit http://localhost:8080 and log in to the management panel with:
 
 - **Username**: `admin`
 - **Password**: `admin`
@@ -101,7 +101,7 @@ The configuration file is located at `data/config.json` by default and is automa
 {
   "server": {
     "host": "0.0.0.0",
-    "port": 8384
+    "port": 8080
   },
   "database": {
     "type": "sqlite",
@@ -118,7 +118,7 @@ The configuration file is located at `data/config.json` by default and is automa
 | Option | Description | Default |
 |--------|-------------|---------|
 | `server.host` | Listen address | `0.0.0.0` |
-| `server.port` | Server port | `8384` |
+| `server.port` | Server port | `8080` |
 | `database.type` | Database type | `sqlite` |
 | `database.path` | Database connection string | `data/data.db` |
 | `log.level` | Log level | `info` |
@@ -333,7 +333,7 @@ from openai import OpenAI
 import os
 
 client = OpenAI(   
-    base_url="http://127.0.0.1:8384/v1",   
+    base_url="http://127.0.0.1:8080/v1",   
     api_key="sk-octopus-P48ROljwJmWBYVARjwQM8Nkiezlg7WOrXXOWDYY8TI5p9Mzg", 
 )
 completion = client.chat.completions.create(
@@ -352,7 +352,7 @@ Edit `~/.claude/settings.json`
 ```json
 {
   "env": {
-    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8384",
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:8080",
     "ANTHROPIC_AUTH_TOKEN": "sk-octopus-P48ROljwJmWBYVARjwQM8Nkiezlg7WOrXXOWDYY8TI5p9Mzg",
     "API_TIMEOUT_MS": "3000000",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
@@ -376,7 +376,7 @@ model_provider = "octopus"
 
 [model_providers.octopus]
 name = "octopus"
-base_url = "http://127.0.0.1:8384/v1"
+base_url = "http://127.0.0.1:8080/v1"
 ```
 
 Edit `~/.codex/auth.json`

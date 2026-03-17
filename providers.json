@@ -58,7 +58,7 @@
   {
     "name": "Antigravity",
     "channel_type": 7,
-    "base_url": "https://generativelanguage.googleapis.com/v1beta",
+    "base_url": "https://cloudcode-pa.googleapis.com",
     "auth_type": "oauth_web"
   }
 ]

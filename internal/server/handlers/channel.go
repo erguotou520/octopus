@@ -286,9 +286,12 @@ func testChannelModels(c *gin.Context) {
 		}
 		defer resp.Body.Close()
 
-		// 只要成功响应（2xx）就算通过
+		// 2xx 或 429（rate limited）均视为通过：请求格式正确，渠道可用
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			result.Passed = true
+		} else if resp.StatusCode == http.StatusTooManyRequests {
+			result.Passed = true
+			result.Error = "Rate limited (429), but channel is reachable"
 		} else {
 			result.Passed = false
 			result.Error = "LLM returned status: " + resp.Status
@@ -415,8 +418,12 @@ func testChannelModelsByConfig(c *gin.Context) {
 		}
 		defer httpResp.Body.Close()
 
+		// 2xx 或 429（rate limited）均视为通过：请求格式正确，渠道可用
 		if httpResp.StatusCode >= 200 && httpResp.StatusCode < 300 {
 			result.Passed = true
+		} else if httpResp.StatusCode == http.StatusTooManyRequests {
+			result.Passed = true
+			result.Error = "Rate limited (429), but channel is reachable"
 		} else {
 			result.Passed = false
 			result.Error = "LLM returned status: " + httpResp.Status

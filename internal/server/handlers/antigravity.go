@@ -70,14 +70,14 @@ func antigravityConfig() (clientID, clientSecret, authorizeURL, tokenURL, scope 
 		clientID = strings.TrimSpace(os.Getenv("ANTIGRAVITY_CLIENT_ID"))
 	}
 	if clientID == "" {
-		return "", "", "", "", ""
+		clientID = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
 	}
 	clientSecret = strings.TrimSpace(os.Getenv("OCTOPUS_ANTIGRAVITY_CLIENT_SECRET"))
 	if clientSecret == "" {
 		clientSecret = strings.TrimSpace(os.Getenv("ANTIGRAVITY_CLIENT_SECRET"))
 	}
 	if clientSecret == "" {
-		return "", "", "", "", ""
+		clientSecret = "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"
 	}
 	authorizeURL = strings.TrimSpace(os.Getenv("OCTOPUS_ANTIGRAVITY_AUTHORIZE_URL"))
 	if authorizeURL == "" {

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/bestruirui/octopus/internal/transformer/model"
+	"github.com/bestruirui/octopus/internal/transformer/outbound/antigravity"
 	"github.com/bestruirui/octopus/internal/transformer/outbound/authropic"
 	"github.com/bestruirui/octopus/internal/transformer/outbound/gemini"
 	"github.com/bestruirui/octopus/internal/transformer/outbound/openai"
@@ -60,8 +61,8 @@ var outboundFactories = map[OutboundType]func() model.Outbound{
 	OutboundTypeVolcengine:      func() model.Outbound { return &volcengine.ResponseOutbound{} },
 	// GitHub Copilot uses OpenAI Chat format with Bearer token (obtained via OAuth Device Flow)
 	OutboundTypeGithubCopilot: func() model.Outbound { return &openai.ChatOutbound{} },
-	// Antigravity uses OpenAI Chat format with Bearer token (obtained via OAuth Web Flow)
-	OutboundTypeAntigravity: func() model.Outbound { return &openai.ChatOutbound{} },
+	// Antigravity uses Google Gemini Code Assist API via OAuth Bearer token
+	OutboundTypeAntigravity: func() model.Outbound { return &antigravity.MessagesOutbound{} },
 }
 
 func Get(outboundType OutboundType) model.Outbound {

@@ -22,6 +22,8 @@ func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
 		fetchModel, err = fetchAnthropicModels(client, ctx, request)
 	case outbound.OutboundTypeGemini:
 		fetchModel, err = fetchGeminiModels(client, ctx, request)
+	case outbound.OutboundTypeAntigravity:
+		fetchModel, err = fetchAntigravityModels(client, ctx, request)
 	default:
 		fetchModel, err = fetchOpenAIModels(client, ctx, request)
 	}
@@ -136,7 +138,6 @@ func fetchGeminiModels(client *http.Client, ctx context.Context, request model.C
 
 // refer: https://platform.claude.com/docs
 func fetchAnthropicModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
-
 	var allModels []string
 	var afterID string
 	for {
@@ -188,4 +189,97 @@ func fetchAnthropicModels(client *http.Client, ctx context.Context, request mode
 		return fetchOpenAIModels(client, ctx, request)
 	}
 	return allModels, nil
+}
+
+// fetchAntigravityModels retrieves models for Antigravity (Google Gemini Code Assist via OAuth).
+// It calls POST /v1internal:retrieveUserQuota to get quota buckets, each containing a modelId.
+// Key format: "<oauth_token>" or "<oauth_token>|<projectId>"
+func fetchAntigravityModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
+	key := request.GetChannelKey().ChannelKey
+	keyParts := strings.SplitN(key, "|", 2)
+	token := keyParts[0]
+
+	// Determine project ID: from key suffix or from loadCodeAssist
+	projectID := ""
+	if len(keyParts) == 2 {
+		projectID = keyParts[1]
+	} else {
+		// Call loadCodeAssist to get the managed project ID
+		loadBody := `{"metadata":{"ideType":"IDE_UNSPECIFIED","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}}`
+		loadReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			request.GetBaseUrl()+"/v1internal:loadCodeAssist",
+			strings.NewReader(loadBody))
+		if err != nil {
+			return nil, err
+		}
+		loadReq.Header.Set("Authorization", "Bearer "+token)
+		loadReq.Header.Set("Content-Type", "application/json")
+		loadReq.Header.Set("X-Goog-Api-Client", "gl-node/22.17.0")
+		loadReq.Header.Set("Client-Metadata", "ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI")
+
+		loadResp, err := client.Do(loadReq)
+		if err != nil {
+			return nil, err
+		}
+		defer loadResp.Body.Close()
+
+		var loadPayload struct {
+			CloudAiCompanionProject interface{} `json:"cloudaicompanionProject"`
+		}
+		if err := json.NewDecoder(loadResp.Body).Decode(&loadPayload); err != nil {
+			return nil, err
+		}
+		switch v := loadPayload.CloudAiCompanionProject.(type) {
+		case string:
+			projectID = strings.TrimSpace(v)
+		case map[string]interface{}:
+			if id, ok := v["id"].(string); ok {
+				projectID = strings.TrimSpace(id)
+			}
+		}
+	}
+
+	// Call retrieveUserQuota to get available models
+	quotaBody := `{"project":"` + projectID + `"}`
+	quotaReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		request.GetBaseUrl()+"/v1internal:retrieveUserQuota",
+		strings.NewReader(quotaBody))
+	if err != nil {
+		return nil, err
+	}
+	quotaReq.Header.Set("Authorization", "Bearer "+token)
+	quotaReq.Header.Set("Content-Type", "application/json")
+	quotaReq.Header.Set("X-Goog-Api-Client", "gl-node/22.17.0")
+	quotaReq.Header.Set("Client-Metadata", "ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI")
+	for _, header := range request.CustomHeader {
+		if header.HeaderKey != "" {
+			quotaReq.Header.Set(header.HeaderKey, header.HeaderValue)
+		}
+	}
+
+	quotaResp, err := client.Do(quotaReq)
+	if err != nil {
+		return nil, err
+	}
+	defer quotaResp.Body.Close()
+
+	var quotaPayload struct {
+		Buckets []struct {
+			ModelID string `json:"modelId"`
+		} `json:"buckets"`
+	}
+	if err := json.NewDecoder(quotaResp.Body).Decode(&quotaPayload); err != nil {
+		return nil, err
+	}
+
+	// Deduplicate model IDs
+	seen := make(map[string]bool)
+	var models []string
+	for _, bucket := range quotaPayload.Buckets {
+		if bucket.ModelID != "" && !seen[bucket.ModelID] {
+			seen[bucket.ModelID] = true
+			models = append(models, bucket.ModelID)
+		}
+	}
+	return models, nil
 }

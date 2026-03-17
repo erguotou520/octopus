@@ -329,8 +329,8 @@
     },
     "apiBaseUrl": {
       "label": "系统 API 地址",
-      "placeholder": "http://localhost:8384",
-      "hint": "用于文档弹框中的 curl 示例地址，默认为 http://localhost:8384"
+      "placeholder": "http://localhost:8080",
+      "hint": "用于文档弹框中的 curl 示例地址，默认为 http://localhost:8080"
     }
   },
   "group": {
@@ -519,7 +519,9 @@
       "proxy": "使用代理",
       "modelCustomPlaceholder": "自定义模型名称",
       "modelAdd": "添加",
-      "modelRefresh": "刷新",
+      "selectModels": "选择模型",
+      "selectModelsConfirm": "确认",
+      "selectModelsCancel": "取消",
       "modelRefreshSuccess": "模型列表获取成功",
       "modelRefreshFailed": "模型列表获取失败",
       "modelRefreshEmpty": "未获取到模型列表",
@@ -576,6 +578,7 @@
       "modelSelectAllFetched": "全选请求结果",
       "modelClearFetched": "清空请求结果",
       "antigravityOAuthTitle": "Antigravity 网页授权",
+      "antigravityConfigHint": "使用内置默认 OAuth 应用（Gemini CLI），也可通过 OCTOPUS_ANTIGRAVITY_CLIENT_ID / CLIENT_SECRET 环境变量自定义",
       "antigravityStartAuth": "开始 Antigravity 授权",
       "antigravityWaiting": "等待网页授权完成，请在新窗口操作...",
       "antigravityOpenAgain": "重新打开授权页面",
