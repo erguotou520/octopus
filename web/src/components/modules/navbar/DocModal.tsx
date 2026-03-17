@@ -260,7 +260,7 @@ export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
                             {contentTab === 'curl' && (
                                 <>
                                     {/* 第一行：API 地址 + API 类型 */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-1">
                                             <div className="flex items-center gap-1.5">
                                                 <label className="text-sm font-medium text-muted-foreground">{t('baseUrl')}</label>
@@ -294,7 +294,7 @@ export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
                                     </div>
 
                                     {/* 第二行：API 密钥 + 分组 */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium text-card-foreground">{t('apiKey')}</label>
                                             <Select value={selectedApiKey} onValueChange={setSelectedApiKey}>
@@ -447,7 +447,7 @@ export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
 
                                     {/* Haiku / Sonnet / Opus（仅 claude） */}
                                     {ccswitchForm.appType === 'claude' && (
-                                        <div className="grid grid-cols-3 gap-3">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                             {(
                                                 [
                                                     { field: 'haikuModel' as const, labelKey: 'ccswitchHaikuModel' as const },

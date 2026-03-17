@@ -24,6 +24,16 @@
 - 🎨 **优雅界面** - 简洁美观的 Web 管理面板
 - 🗄️ **多数据库支持** - 支持 SQLite、MySQL、PostgreSQL
 
+### ✨ 额外功能（相对上游项目）
+
+- 🤖 **GitHub Copilot OAuth** - 一键 GitHub Copilot OAuth Device Flow 登录，无需手动管理 token
+- 🌌 **Antigravity（Google Gemini Code Assist）** - OAuth Web Flow 集成，自动获取项目 ID 并封装 Gemini 请求
+- 🧪 **模型测试 UI** - 保存渠道前可先测试模型连通性；支持批量测试，429 视为通过
+- 🔌 **内置供应商模板** - 20+ 预设供应商配置（OpenAI、Anthropic、Gemini、智谱、火山引擎、Copilot 等），一键建立渠道
+- 📋 **CC Switch 集成** - 在 UI 中直接生成 `ccswitch://` 深链接，一键将供应商配置导入 Claude / Codex / Gemini CLI 工具
+- 🎯 **Zen 渠道** - 智能协议路由：根据模型名前缀自动选择 Anthropic / OpenAI Responses / Gemini / OpenAI Chat
+- ⚙️ **API 基础地址设置** - 配置对外可访问的基础地址，用于生成 curl 示例和引导内容
+
 
 ## 🚀 快速开始
 
@@ -219,6 +229,16 @@ Octopus 对 Copilot 与 Antigravity 登录内置了默认值，不配置也可�
 <td><img src="web/public/screenshot/desktop-log.png" alt="日志" width="400"></td>
 <td><img src="web/public/screenshot/desktop-setting.png" alt="设置" width="400"></td>
 </tr>
+<tr>
+<td align="center"><b>Curl 示例</b></td>
+<td align="center"><b>CC Switch</b></td>
+<td align="center"></td>
+</tr>
+<tr>
+<td><img src="web/public/screenshot/desktop-api-curl.png" alt="Curl 示例" width="400"></td>
+<td><img src="web/public/screenshot/desktop-api-cc.png" alt="CC Switch" width="400"></td>
+<td></td>
+</tr>
 </table>
 </div>
 
@@ -241,6 +261,22 @@ Octopus 对 Copilot 与 Antigravity 登录内置了默认值，不配置也可�
 <td><img src="web/public/screenshot/mobile-price.png" alt="移动端价格" width="140"></td>
 <td><img src="web/public/screenshot/mobile-log.png" alt="移动端日志" width="140"></td>
 <td><img src="web/public/screenshot/mobile-setting.png" alt="移动端设置" width="140"></td>
+</tr>
+<tr>
+<td align="center"><b>Curl 示例</b></td>
+<td align="center"><b>CC Switch</b></td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"></td>
+</tr>
+<tr>
+<td><img src="web/public/screenshot/mobile-api-curl.png" alt="移动端 Curl" width="140"></td>
+<td><img src="web/public/screenshot/mobile-api-cc.png" alt="移动端 CC Switch" width="140"></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 </table>
 </div>
@@ -388,6 +424,14 @@ base_url = "http://127.0.0.1:8080/v1"
 }
 ```
 
+
+### CC Switch（一键导入 CLI 工具）
+
+在 Web 界面点击 **API 文档** 按鈕 → **CC Switch** tab，即可生成深链接，直接将 Octopus 供应商配置导入 CLI 工具。
+
+支持工具：**Claude Code**、**Codex**、**Gemini CLI**
+
+Claude Code 模式还支持为 Haiku / Sonnet / Opus 分别配置不同的模型映射。
 
 ---
 

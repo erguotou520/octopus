@@ -24,6 +24,16 @@
 - 🎨 **Elegant UI** - Clean and beautiful web management panel
 - 🗄️ **Multi-Database Support** - Support for SQLite, MySQL, PostgreSQL
 
+### ✨ Extra Features (vs upstream)
+
+- 🤖 **GitHub Copilot OAuth** - One-click GitHub Copilot OAuth Device Flow login, no manual token management
+- 🌌 **Antigravity (Google Gemini Code Assist)** - OAuth Web Flow integration with automatic project ID retrieval and Gemini request wrapping
+- 🧪 **Model Testing UI** - Test channel model connectivity before saving; supports batch testing, 429 treated as pass
+- 🔌 **Built-in Providers** - 20+ pre-configured provider templates (OpenAI, Anthropic, Gemini, Zhipu, Volcengine, Copilot, etc.) for one-click channel creation
+- 📋 **CC Switch Integration** - Generate `ccswitch://` deep links to import provider config into Claude / Codex / Gemini CLI tools directly from the UI
+- 🎯 **Zen Channel** - Smart protocol routing: auto-selects Anthropic / OpenAI Responses / Gemini / OpenAI Chat based on model name prefix
+- ⚙️ **API Base URL Setting** - Configure the externally accessible base URL for generated curl examples and client config instructions
+
 
 ## 🚀 Quick Start
 
@@ -218,6 +228,16 @@ Notes:
 <td><img src="web/public/screenshot/desktop-log.png" alt="Logs" width="400"></td>
 <td><img src="web/public/screenshot/desktop-setting.png" alt="Settings" width="400"></td>
 </tr>
+<tr>
+<td align="center"><b>Curl usage</b></td>
+<td align="center"><b>CC Switch</b></td>
+<td align="center"><b> </b></td>
+</tr>
+<tr>
+<td><img src="web/public/screenshot/desktop-api-curl.png" alt="Curl Usage" width="400"></td>
+<td><img src="web/public/screenshot/desktop-api-cc.png" alt="CC Switch" width="400"></td>
+<td></td>
+</tr>
 </table>
 </div>
 
@@ -240,6 +260,22 @@ Notes:
 <td><img src="web/public/screenshot/mobile-price.png" alt="Mobile Price" width="140"></td>
 <td><img src="web/public/screenshot/mobile-log.png" alt="Mobile Logs" width="140"></td>
 <td><img src="web/public/screenshot/mobile-setting.png" alt="Mobile Settings" width="140"></td>
+</tr>
+<tr>
+<td align="center"><b>Curl usage</b></td>
+<td align="center"><b>CC Switch</b></td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"></td>
+<td align="center"></td>
+</tr>
+<tr>
+<td><img src="web/public/screenshot/mobile-api-curl.png" alt="Mobile Curl Usage" width="140"></td>
+<td><img src="web/public/screenshot/mobile-api-cc.png" alt="Mobile CC Switch" width="140"></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
 </tr>
 </table>
 </div>
@@ -386,6 +422,14 @@ Edit `~/.codex/auth.json`
   "OPENAI_API_KEY": "sk-octopus-P48ROljwJmWBYVARjwQM8Nkiezlg7WOrXXOWDYY8TI5p9Mzg"
 }
 ```
+
+### CC Switch (One-click CLI Import)
+
+In the web UI, click the **API Docs** button → **CC Switch** tab to generate a deep link that imports your Octopus provider config directly into CLI tools.
+
+Supported tools: **Claude Code**, **Codex**, **Gemini CLI**
+
+For Claude Code, you can also configure separate model mappings for Haiku / Sonnet / Opus roles.
 
 ---
 

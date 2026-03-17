@@ -64,13 +64,16 @@
 - **`fix: relay.go model not supported 错误提示`**：将错误消息改为 `"model not allowed for this API key"`，更准确描述 API Key 权限限制问题
 - **`fix: locale 文件路径`**：修正 locale 文件名（`zh_hans.json` → `zh-Hans.json`，`zh_hant.json` → `zh-Hant.json`）并更新 provider
 - **`fix: Antigravity TLS SNI 错误`**：还原了错误的域名映射代码，将 base_url 正确指向 `cloudcode-pa.googleapis.com`
+- **`fix: GLM/Zhipu 1210 参数有误`**：通过 debug 日志写文件定位根因，确认 `metadata` 字段（来自 Anthropic 协议透传的 `user_id`）导致 GLM OpenAI-compat 端点返回 1210 错误；正确解法为将渠道改用 GLM Anthropic 兼容接口（`/api/anthropic/v1`），而非修改请求参数
+- **`fix: mobile navbar 分隔线方向`**：底部导航栏（mobile）的分隔线从水平线（`w-6 h-px`）改为垂直线（`w-px h-6`），在横排布局中视觉正确
 
 ### 🔧 配置与基础设施
 
 - `CORS 中间件`：允许本地开发来源（`localhost:3000`、`127.0.0.1:3000` 等），方便前后端分离开发
-- `providers.json`：更新 Antigravity base URL、新增 Zen 渠道配置
+- `providers.json`：更新 Antigravity base URL、新增 Zen 渠道配置；新增 `质谱 AI (Anthropic 兼容)` 和 `质谱 Coding Plan (Anthropic 兼容)` 两条入口（base_url 均为 `https://open.bigmodel.cn/api/anthropic/v1`，channel_type=2），方便直接使用 Anthropic 兼容接口
 - `docker-compose.yml`：镜像来源更新为 `erguotou520/octopus`
 - `CLAUDE.md`：添加上游同步操作指引和完整项目文档
+- `CI/CD`：`release.yaml` 新增 tag 推送触发条件（`tags: v*`），在 `feat/erguotou` 分支上推送 `vX.Y.Z` tag 即可触发完整 release 构建流程（编译 + GitHub Release + Docker 镜像推送）
 
 ### 🌐 国际化
 
