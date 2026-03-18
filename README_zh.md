@@ -251,32 +251,24 @@ Octopus 对 Copilot 与 Antigravity 登录内置了默认值，不配置也可�
 <td align="center"><b>渠道</b></td>
 <td align="center"><b>分组</b></td>
 <td align="center"><b>价格</b></td>
-<td align="center"><b>日志</b></td>
-<td align="center"><b>设置</b></td>
 </tr>
 <tr>
 <td><img src="web/public/screenshot/mobile-home.png" alt="移动端首页" width="140"></td>
 <td><img src="web/public/screenshot/mobile-channel.png" alt="移动端渠道" width="140"></td>
 <td><img src="web/public/screenshot/mobile-group.png" alt="移动端分组" width="140"></td>
 <td><img src="web/public/screenshot/mobile-price.png" alt="移动端价格" width="140"></td>
-<td><img src="web/public/screenshot/mobile-log.png" alt="移动端日志" width="140"></td>
-<td><img src="web/public/screenshot/mobile-setting.png" alt="移动端设置" width="140"></td>
 </tr>
 <tr>
+<td align="center"><b>日志</b></td>
+<td align="center"><b>设置</b></td>
 <td align="center"><b>Curl 示例</b></td>
 <td align="center"><b>CC Switch</b></td>
-<td align="center"></td>
-<td align="center"></td>
-<td align="center"></td>
-<td align="center"></td>
 </tr>
 <tr>
+<td><img src="web/public/screenshot/mobile-log.png" alt="移动端日志" width="140"></td>
+<td><img src="web/public/screenshot/mobile-setting.png" alt="移动端设置" width="140"></td>
 <td><img src="web/public/screenshot/mobile-api-curl.png" alt="移动端 Curl" width="140"></td>
 <td><img src="web/public/screenshot/mobile-api-cc.png" alt="移动端 CC Switch" width="140"></td>
-<td></td>
-<td></td>
-<td></td>
-<td></td>
 </tr>
 </table>
 </div>
