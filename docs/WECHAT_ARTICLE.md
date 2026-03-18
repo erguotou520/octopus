@@ -15,6 +15,8 @@
 
 **场景四**：想接 GitHub Copilot 的后端能力，或者用 Google Gemini Code Assist 的免费额度，但这些服务走 OAuth，不是标准 API Key，和你现有工具完全不兼容。
 
+**场景五**：OpenClaw真好用，但是也真不安全，我的key很可能在我不知道的情况下被泄露出去，导致费用炸表。
+
 ---
 
 ## Octopus 解决的就是这些问题
@@ -80,6 +82,76 @@ Octopus 是一个**为个人和小团队设计的 LLM API 聚合网关**。它�
 
 ---
 
+## 📸 界面预览
+
+### 🖥️ 桌面端
+
+**首页**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/desktop-home.png" alt="首页" width="600">
+
+**渠道**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/desktop-channel.png" alt="渠道" width="600">
+
+**分组**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/desktop-group.png" alt="分组" width="600">
+
+**价格**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/desktop-price.png" alt="价格" width="600">
+
+**日志**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/desktop-log.png" alt="日志" width="600">
+
+**设置**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/desktop-setting.png" alt="设置" width="600">
+
+**Curl 示例**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/desktop-api-curl.png" alt="Curl 示例" width="600">
+
+**CC Switch**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/desktop-api-cc.png" alt="CC Switch" width="600">
+
+### 📱 移动端
+
+**首页**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/mobile-home.png" alt="移动端首页" width="300">
+
+**渠道**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/mobile-channel.png" alt="移动端渠道" width="300">
+
+**分组**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/mobile-group.png" alt="移动端分组" width="300">
+
+**价格**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/mobile-price.png" alt="移动端价格" width="300">
+
+**日志**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/mobile-log.png" alt="移动端日志" width="300">
+
+**设置**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/mobile-setting.png" alt="移动端设置" width="300">
+
+**Curl 示例**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/mobile-api-curl.png" alt="移动端 Curl" width="300">
+
+**CC Switch**
+
+<img src="https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/feat/erguotou/web/public/screenshot/mobile-api-cc.png" alt="移动端 CC Switch" width="300">
+
 ## 快速上手
 
 ### Docker（最简单）
@@ -110,7 +182,7 @@ docker compose up -d
 1. 在 Octopus 添加 **Antigravity** 渠道 → 用 Google 账号完成 OAuth → 自动获取 Gemini Code Assist 可用模型
 2. 添加 **Anthropic** 渠道 → 填入 Claude API Key
 3. 创建一个分组 `coding`，包含上面两个渠道，策略设为 Failover（Claude 优先，Gemini 兜底）
-4. 在 Claude Code 里填入 Octopus 地址和 API Key，模型选 `coding`
+4. 在 Claude Code 里填入 Octopus 地址和 API Key，模型选 `coding`，或者使用`Octopus`页面上的导入`CC Switch`的方法
 5. 完成。Claude 正常时走 Claude，限速时自动用免费 Gemini 兜底
 
 ### 场景：给团队统一发 Key
@@ -127,12 +199,12 @@ docker compose up -d
 - 上游：https://github.com/bestruirui/octopus（感谢原作者 bestruirui）
 - 支持平台：Linux / macOS / Windows，Docker 支持 amd64 / arm64 / armv7
 
-本分支（`erguotou520/octopus`）在上游基础上额外支持：
-- ✅ GitHub Copilot OAuth 接入
-- ✅ Google Gemini Code Assist（Antigravity）OAuth 接入
-- ✅ Providers 预设库（20+ 供应商开箱即用）
-- ✅ CC Switch 一键导入
-- ✅ 渠道模型测试（创建前验证可用性）
+本分支（`feat/erguotou`）在上游基础上额外支持：
+- GitHub Copilot OAuth 接入
+- Google Gemini Code Assist（Antigravity）OAuth 接入
+- Providers 预设库（20+ 供应商开箱即用）
+- CC Switch 一键导入
+- 渠道模型测试（创建前验证可用性）
 
 ---
 
@@ -140,9 +212,9 @@ docker compose up -d
 
 如果你符合以下任意一条，Octopus 值得你花 5 分钟部署试用：
 
-- ✅ 同时使用 2 个以上 AI 服务商
-- ✅ 需要给自己或团队统一管理 API 消费
-- ✅ 想用免费的 GitHub Copilot 或 Gemini Code Assist 作为备用模型
-- ✅ 希望在不改代码、不换工具的情况下切换底层模型
+- 同时使用 2 个以上 AI 服务商
+- 需要给自己或团队统一管理 API 消费
+- 想用免费的 GitHub Copilot 或 Gemini Code Assist 作为备用模型
+- 希望在不改代码、不换工具的情况下切换底层模型
 
 **部署一次，受益长期。**
