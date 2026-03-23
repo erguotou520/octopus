@@ -8,6 +8,7 @@ import (
 
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/transformer/outbound"
+	"github.com/bestruirui/octopus/internal/transformer/outbound/copilot"
 	"github.com/dlclark/regexp2"
 )
 
@@ -24,6 +25,8 @@ func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
 		fetchModel, err = fetchGeminiModels(client, ctx, request)
 	case outbound.OutboundTypeAntigravity:
 		fetchModel, err = fetchAntigravityModels(client, ctx, request)
+	case outbound.OutboundTypeGithubCopilot:
+		fetchModel, err = fetchCopilotModels(client, ctx, request)
 	default:
 		fetchModel, err = fetchOpenAIModels(client, ctx, request)
 	}
@@ -280,6 +283,48 @@ func fetchAntigravityModels(client *http.Client, ctx context.Context, request mo
 			seen[bucket.ModelID] = true
 			models = append(models, bucket.ModelID)
 		}
+	}
+	return models, nil
+}
+
+// fetchCopilotModels retrieves models for GitHub Copilot channel.
+// It first exchanges the GitHub OAuth token for a short-lived Copilot API token,
+// then calls the OpenAI-compatible /models endpoint on api.githubcopilot.com.
+func fetchCopilotModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
+	githubToken := request.GetChannelKey().ChannelKey
+	copilotToken, err := copilot.ExchangeToken(ctx, githubToken)
+	if err != nil {
+		return nil, err
+	}
+
+	req, _ := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		request.GetBaseUrl()+"/models",
+		nil,
+	)
+	req.Header.Set("Authorization", "Bearer "+copilotToken)
+	for _, header := range request.CustomHeader {
+		if header.HeaderKey != "" {
+			req.Header.Set(header.HeaderKey, header.HeaderValue)
+		}
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var result model.OpenAIModelList
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	models := make([]string, 0, len(result.Data))
+	for _, m := range result.Data {
+		models = append(models, m.ID)
 	}
 	return models, nil
 }
