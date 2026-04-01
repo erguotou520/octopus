@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 
 type ApiType = 'openai-chat' | 'openai-responses' | 'anthropic';
 type ContentTab = 'curl' | 'ccswitch';
-type CCSwitchAppType = 'claude' | 'codex' | 'gemini';
+type CCSwitchAppType = 'claude' | 'codex';
 
 const API_PATHS: Record<ApiType, string> = {
     'openai-chat': '/v1/chat/completions',
@@ -374,8 +374,8 @@ export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
                                     {/* CLI Tool segmented */}
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-card-foreground">{t('ccswitchCliTool')}</label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {(['claude', 'codex', 'gemini'] as CCSwitchAppType[]).map((app) => (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {(['claude', 'codex'] as CCSwitchAppType[]).map((app) => (
                                                 <Button
                                                     key={app}
                                                     type="button"
