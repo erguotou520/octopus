@@ -75,7 +75,7 @@ function buildCCSwitchUrl(baseUrl: string, apiKey: string, form: CCSwitchForm): 
     params.set('resource', 'provider');
     params.set('app', form.appType);
     params.set('name', form.name);
-    params.set('endpoint', baseUrl);
+    params.set('endpoint', form.appType === 'codex' ? `${baseUrl}/v1` : baseUrl);
     params.set('apiKey', apiKey);
     params.set('model', form.model);
     params.set('homepage', baseUrl);
