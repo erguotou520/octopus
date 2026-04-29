@@ -50,6 +50,26 @@
     "base_url": "https://open.bigmodel.cn/api/anthropic/v1"
   },
   {
+    "name": "Kimi (OpenAI 兼容)",
+    "channel_type": 0,
+    "base_url": "https://api.moonshot.cn/v1"
+  },
+  {
+    "name": "Kimi (Anthropic 兼容)",
+    "channel_type": 2,
+    "base_url": "https://api.moonshot.cn/v1"
+  },
+  {
+    "name": "Kimi Coding Plan (OpenAI 兼容)",
+    "channel_type": 0,
+    "base_url": "https://api.kimi.com/coding/v1"
+  },
+  {
+    "name": "Kimi Coding Plan (Anthropic 兼容)",
+    "channel_type": 2,
+    "base_url": "https://api.kimi.com/coding/v1"
+  },
+  {
     "name": "GitHub Copilot",
     "channel_type": 6,
     "base_url": "https://api.githubcopilot.com",
