@@ -50,8 +50,7 @@
     "key": "Key",
     "model": "Price",
     "log": "Log",
-    "setting": "Setting",
-    "doc": "API Usage Docs"
+    "setting": "Setting"
   },
   "toolbar": {
     "popover": {
@@ -116,9 +115,16 @@
       "outputCost": "Output Cost"
     },
     "chart": {
+      "title": "Trend",
       "totalRequests": "Total Requests",
       "totalCost": "Total Cost",
+      "totalTokens": "Total Tokens",
       "timePeriod": "Time Period",
+      "metricType": {
+        "cost": "Cost",
+        "count": "Count",
+        "tokens": "Tokens"
+      },
       "period": {
         "today": "Today",
         "last7Days": "7 Days",
@@ -129,6 +135,7 @@
       "title": "Ranking",
       "sortByCost": "Cost",
       "sortByCount": "Count",
+      "sortByTokens": "Tokens",
       "noData": "No ranking data",
       "successRate": "Success Rate"
     }
@@ -144,8 +151,8 @@
     },
     "language": {
       "label": "Language",
-      "zh-Hans": "Chinese (Simplified)",
-      "zh-Hant": "Chinese (Traditional)",
+      "zh_hans": "Chinese (Simplified)",
+      "zh_hant": "Chinese (Traditional)",
       "en": "English"
     },
     "proxyUrl": {
@@ -271,39 +278,6 @@
       "syncSuccess": "Channel synced successfully",
       "syncFailed": "Failed to sync channel"
     },
-    "toolbar": {
-        "popover": {
-            "ariaLabel": "View options",
-            "layout": "Layout",
-            "sort": "Sort",
-            "grid": "Grid",
-            "list": "List",
-            "nameAsc": "Name Asc",
-            "nameDesc": "Name Desc",
-            "createdAsc": "Time Asc",
-            "createdDesc": "Time Desc",
-            "asc": "Asc",
-            "desc": "Desc",
-            "filter": {
-                "title": "Filter",
-                "channel": {
-                    "all": "All channels",
-                    "enabled": "Enabled only",
-                    "disabled": "Disabled only"
-                },
-                "group": {
-                    "all": "All groups",
-                    "withMembers": "With members",
-                    "empty": "Empty groups"
-                },
-                "model": {
-                    "all": "All models",
-                    "priced": "Priced only",
-                    "free": "Free only"
-                }
-            }
-        }
-    },
     "account": {
       "title": "Account Settings",
       "save": "Save",
@@ -363,11 +337,6 @@
       },
       "clearSuccess": "Logs cleared",
       "clearFailed": "Failed to clear logs"
-    },
-    "apiBaseUrl": {
-      "label": "System API Base URL",
-      "placeholder": "http://localhost:8080",
-      "hint": "Used in API docs curl example. Default: http://localhost:8080"
     }
   },
   "group": {
@@ -411,8 +380,7 @@
       "autoAdd": "Auto Add",
       "clear": "Clear",
       "selectChannel": "Channel",
-      "selectModel": "Model",
-      "nameRule": "Group name cannot contain spaces or colons (: / ：)"
+      "selectModel": "Model"
     },
     "mode": {
       "roundRobin": "Round Robin",
@@ -494,10 +462,6 @@
         "edit": "Edit Channel",
         "view": "Channel Details"
       },
-      "tabs": {
-        "stats": "Statistics",
-        "models": "Models"
-      },
       "sections": {
         "requests": "Request Details",
         "tokens": "Token Usage",
@@ -556,9 +520,7 @@
       "proxy": "Use Proxy",
       "modelCustomPlaceholder": "Custom model name",
       "modelAdd": "Add",
-      "selectModels": "Select Models",
-      "selectModelsConfirm": "Confirm",
-      "selectModelsCancel": "Cancel",
+      "modelRefresh": "Refresh",
       "modelRefreshSuccess": "Models fetched successfully",
       "modelRefreshFailed": "Failed to fetch models",
       "modelRefreshEmpty": "No models found",
@@ -571,13 +533,6 @@
       "typeAnthropic": "Anthropic",
       "typeGemini": "Gemini",
       "typeVolcengine": "Volcengine",
-      "typeGithubCopilot": "GitHub Copilot",
-      "typeAntigravity": "Antigravity",
-      "typeZen": "OpenCode Zen",
-      "githubCopilotHint": "GitHub Copilot requires OAuth Device Flow authentication",
-      "githubCopilotHintDesc": "Please complete the device authorization flow on GitHub to obtain an access token, then paste it into the API Key field below. Automatic authorization is not yet supported.",
-      "antigravityHint": "Antigravity requires OAuth Web Flow authentication",
-      "antigravityHintDesc": "Please complete the OAuth authorization on the Antigravity website to obtain an API token, then paste it into the API Key field below.",
       "autoSync": "Auto Sync",
       "autoGroup": "Auto Group",
       "autoGroupNone": "None",
@@ -586,54 +541,7 @@
       "autoGroupRegex": "Regex",
       "matchRegex": "Match Regex",
       "matchRegexPlaceholder": "Optional: regex pattern to match request model names",
-      "remark": "Remark",
-      "providerPreset": "Provider Preset",
-      "providerPresetPlaceholder": "Select a provider to auto-fill Base URL and type",
-      "namePlaceholder": "Enter channel name",
-      "namePlaceholderPrefix": "My ",
-      "baseUrlTooltip": "API URL usually ends with /v1, e.g. https://api.openai.com/v1",
-      "testFirst": "Test",
-      "testFirstTitle": "Test first model",
-      "testAll": "Test All",
-      "testAllTitle": "Test all models",
-      "testFailed": "Test request failed",
-      "testNeedBaseUrlAndKey": "Please fill in Base URL and API Key first",
-      "testResultTitle": "Test Results",
-      "testResultSummary": "{total} models tested, {passed} passed",
-      "copilotDeviceFlow": "GitHub Device Flow Authorization",
-      "copilotStartAuth": "Start GitHub Authorization",
-      "copilotUserCodeHint": "Open the authorization page in your browser and enter the code below:",
-      "copilotOpenGitHub": "Open GitHub Authorization Page",
-      "copilotWaiting": "Waiting for authorization, please complete the steps on GitHub...",
-      "copilotCodeCopied": "Code copied",
-      "copilotSuccess": "Authorized successfully, API Token has been filled in",
-      "copilotExpired": "Authorization code expired, please start again",
-      "copilotDenied": "Authorization denied",
-      "copilotRetry": "Retry Authorization",
-      "copilotError": "Authorization failed, please retry",
-      "fetchedModelList": "Fetched Models",
-      "modelSelectAllFetched": "Select All Fetched",
-      "modelClearFetched": "Clear Fetched",
-      "antigravityOAuthTitle": "Antigravity Web Authorization",
-      "antigravityConfigHint": "Uses built-in default OAuth app (Gemini CLI). You can override via OCTOPUS_ANTIGRAVITY_CLIENT_ID / CLIENT_SECRET environment variables",
-      "antigravityStartAuth": "Start Antigravity Authorization",
-      "antigravityWaiting": "Waiting for web authorization, finish it in the new window...",
-      "antigravityOpenAgain": "Open Authorization Page Again",
-      "antigravitySuccess": "Authorized, token has been filled automatically",
-      "antigravityRetry": "Retry Authorization",
-      "antigravityAuthFailed": "Antigravity authorization failed"
-    },
-    "models": {
-      "selectAll": "Select All",
-      "deselectAll": "Deselect All",
-      "test": "Test",
-      "testSelected": "Test Selected",
-      "testing": "Testing...",
-      "testPassed": "Passed",
-      "testFailed": "Failed",
-      "noModels": "No models",
-      "selectedCount": "{count} selected",
-      "testSummary": "Test completed: {total} models, {passed} passed"
+      "remark": "Remark"
     }
   },
   "doc": {
