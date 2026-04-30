@@ -1060,7 +1060,49 @@ func convertInputToMessages(input *ResponsesInput) ([]model.Message, error) {
 		}
 	}
 
-	return messages, nil
+	// Merge consecutive assistant messages to ensure tool_calls are properly grouped.
+	// In the Responses API, multiple function_call and reasoning items produce separate
+	// assistant messages. OpenAI-compatible APIs require assistant messages with tool_calls
+	// to be immediately followed by tool messages.
+	return mergeConsecutiveAssistantMessages(messages), nil
+}
+
+// mergeConsecutiveAssistantMessages merges consecutive assistant messages into one.
+// In the Responses API, multiple function_call and reasoning items each produce a separate
+// assistant message. OpenAI-compatible APIs require a single assistant message with all
+// tool_calls grouped together, immediately followed by tool messages.
+func mergeConsecutiveAssistantMessages(messages []model.Message) []model.Message {
+	if len(messages) <= 1 {
+		return messages
+	}
+
+	merged := make([]model.Message, 0, len(messages))
+	for _, msg := range messages {
+		lastIdx := len(merged) - 1
+		if msg.Role == "assistant" && lastIdx >= 0 && merged[lastIdx].Role == "assistant" {
+			// Merge into the previous assistant message
+			prev := &merged[lastIdx]
+			prev.ToolCalls = append(prev.ToolCalls, msg.ToolCalls...)
+			if msg.Content.Content != nil && *msg.Content.Content != "" {
+				if prev.Content.Content != nil {
+					combined := *prev.Content.Content + *msg.Content.Content
+					prev.Content.Content = &combined
+				} else {
+					prev.Content.Content = msg.Content.Content
+				}
+			}
+			if len(msg.Content.MultipleContent) > 0 {
+				prev.Content.MultipleContent = append(prev.Content.MultipleContent, msg.Content.MultipleContent...)
+			}
+			if msg.ReasoningContent != nil {
+				prev.ReasoningContent = msg.ReasoningContent
+				prev.ReasoningSignature = msg.ReasoningSignature
+			}
+		} else {
+			merged = append(merged, msg)
+		}
+	}
+	return merged
 }
 
 func convertItemToMessage(item *ResponsesItem) (*model.Message, error) {

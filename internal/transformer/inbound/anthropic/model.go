@@ -240,7 +240,12 @@ func (c MessageContent) MarshalJSON() ([]byte, error) {
 		return json.Marshal(c.Content)
 	}
 
-	return json.Marshal(c.MultipleContent)
+	if len(c.MultipleContent) > 0 {
+		return json.Marshal(c.MultipleContent)
+	}
+
+	// Anthropic API requires non-null content; return empty string as fallback
+	return json.Marshal("")
 }
 
 func (c *MessageContent) UnmarshalJSON(data []byte) error {

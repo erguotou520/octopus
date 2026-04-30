@@ -509,6 +509,9 @@ func convertToolResultBlock(msg model.Message) anthropicModel.MessageContentBloc
 
 func convertUserMessage(msg model.Message) []anthropicModel.MessageParam {
 	content := buildMessageContent(msg)
+	if isEmptyContent(content) {
+		return nil
+	}
 	return []anthropicModel.MessageParam{{Role: "user", Content: content}}
 }
 
@@ -618,6 +621,10 @@ func buildMultipleContentWithThinking(msg model.Message) anthropicModel.MessageC
 	})
 
 	return anthropicModel.MessageContent{MultipleContent: blocks}
+}
+
+func isEmptyContent(c anthropicModel.MessageContent) bool {
+	return c.Content == nil && len(c.MultipleContent) == 0
 }
 
 func convertMultiplePartContent(msg model.Message) anthropicModel.MessageContent {

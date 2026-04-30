@@ -2,6 +2,7 @@ package balancer
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -139,6 +140,22 @@ func RecordSuccess(channelID, keyID int, modelName string) {
 	entry.State = StateClosed
 	entry.ConsecutiveFailures = 0
 	entry.TripCount = 0
+}
+
+// ResetForChannel 清除指定通道的所有熔断器状态（通道配置变更时调用）
+func ResetForChannel(channelID int) {
+	prefix := fmt.Sprintf("%d:", channelID)
+	count := 0
+	globalBreaker.Range(func(key, value any) bool {
+		if strings.HasPrefix(key.(string), prefix) {
+			globalBreaker.Delete(key)
+			count++
+		}
+		return true
+	})
+	if count > 0 {
+		log.Infof("circuit breaker reset for channel %d, cleared %d entries", channelID, count)
+	}
 }
 
 // RecordFailure 记录失败，可能触发熔断
