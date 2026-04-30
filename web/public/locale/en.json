@@ -60,6 +60,10 @@
       "sort": "Sort",
       "grid": "Grid",
       "list": "List",
+      "nameAsc": "Name Asc",
+      "nameDesc": "Name Desc",
+      "createdAsc": "Time Asc",
+      "createdDesc": "Time Desc",
       "asc": "Asc",
       "desc": "Desc",
       "filter": {
@@ -266,6 +270,39 @@
       "neverSynced": "Never synced",
       "syncSuccess": "Channel synced successfully",
       "syncFailed": "Failed to sync channel"
+    },
+    "toolbar": {
+        "popover": {
+            "ariaLabel": "View options",
+            "layout": "Layout",
+            "sort": "Sort",
+            "grid": "Grid",
+            "list": "List",
+            "nameAsc": "Name Asc",
+            "nameDesc": "Name Desc",
+            "createdAsc": "Time Asc",
+            "createdDesc": "Time Desc",
+            "asc": "Asc",
+            "desc": "Desc",
+            "filter": {
+                "title": "Filter",
+                "channel": {
+                    "all": "All channels",
+                    "enabled": "Enabled only",
+                    "disabled": "Disabled only"
+                },
+                "group": {
+                    "all": "All groups",
+                    "withMembers": "With members",
+                    "empty": "Empty groups"
+                },
+                "model": {
+                    "all": "All models",
+                    "priced": "Priced only",
+                    "free": "Free only"
+                }
+            }
+        }
     },
     "account": {
       "title": "Account Settings",
