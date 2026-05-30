@@ -7,15 +7,15 @@ import { StatsChannel, type StatsMetricsFormatted } from './stats';
  * 渠道类型枚举
  */
 export enum ChannelType {
-    OpenAIChat = 0,
-    OpenAIResponse = 1,
-    Anthropic = 2,
-    Gemini = 3,
-    Volcengine = 4,
-    OpenAIEmbedding = 5,
-    GithubCopilot = 6,
-    Antigravity = 7,
-    Zen = 8,
+    OpenAIChat = 'openai/chat_completions',
+    OpenAIResponse = 'openai/responses',
+    Anthropic = 'anthropic/messages',
+    Gemini = 'gemini/contents',
+    Volcengine = 'doubao',
+    OpenAIEmbedding = 'openai/embeddings',
+    GithubCopilot = 'github/copilot',
+    Antigravity = 'antigravity',
+    Zen = 'zen',
 }
 
 /**
@@ -367,125 +367,3 @@ export function useSyncChannel() {
     });
 }
 
-/**
- * 测试渠道模型 Hook
- *
- * @example
- * const testModels = useTestChannelModels();
- *
- * testModels.mutate({
- *   channel_id: 1,
- *   models: ['gpt-4', 'gpt-3.5-turbo'],
- * });
- */
-export type TestModelRequest = {
-    channel_id: number;
-    models: string[];
-};
-
-export type TestModelResult = {
-    model: string;
-    passed: boolean;
-    error?: string;
-    delay?: number;
-};
-
-export function useTestChannelModels() {
-    return useMutation({
-        mutationFn: async (data: TestModelRequest) => {
-            return apiClient.post<TestModelResult[]>('/api/v1/channel/test-models', data);
-        },
-        onSuccess: (data) => {
-            logger.log('模型测试完成:', data);
-        },
-        onError: (error) => {
-            logger.error('模型测试失败:', error);
-        },
-    });
-}
-
-export type TestModelByConfigRequest = {
-    type: ChannelType;
-    base_urls: BaseUrl[];
-    keys: Array<Pick<ChannelKey, 'enabled' | 'channel_key'>>;
-    proxy?: boolean;
-    channel_proxy?: string | null;
-    custom_header?: Array<CustomHeader>;
-    models: string[];
-};
-
-export function useTestChannelModelsByConfig() {
-    return useMutation({
-        mutationFn: async (data: TestModelByConfigRequest) => {
-            return apiClient.post<TestModelResult[]>('/api/v1/channel/test-models-by-config', data);
-        },
-        onSuccess: (data) => {
-            logger.log('模型(配置)测试完成:', data);
-        },
-        onError: (error) => {
-            logger.error('模型(配置)测试失败:', error);
-        },
-    });
-}
-
-// ---- GitHub Copilot Device Flow ----
-
-export type CopilotDeviceCodeResponse = {
-    device_code: string;
-    user_code: string;
-    verification_uri: string;
-    expires_in: number;
-    interval: number;
-};
-
-export type CopilotPollResponse = {
-    access_token?: string;
-    token_type?: string;
-    scope?: string;
-    error?: string;
-};
-
-export function useCopilotRequestDeviceCode() {
-    return useMutation({
-        mutationFn: async () => {
-            return apiClient.post<CopilotDeviceCodeResponse>('/api/v1/channel/copilot/device-code', {});
-        },
-    });
-}
-
-export function useCopilotPollToken() {
-    return useMutation({
-        mutationFn: async (deviceCode: string) => {
-            return apiClient.post<CopilotPollResponse>('/api/v1/channel/copilot/poll-token', { device_code: deviceCode });
-        },
-    });
-}
-
-export type AntigravityOAuthStartResponse = {
-    state: string;
-    auth_url: string;
-};
-
-export type AntigravityOAuthPollResponse = {
-    status: 'pending' | 'authorized' | 'failed';
-    access_token?: string;
-    token_type?: string;
-    scope?: string;
-    error?: string;
-};
-
-export function useAntigravityOAuthStart() {
-    return useMutation({
-        mutationFn: async () => {
-            return apiClient.post<AntigravityOAuthStartResponse>('/api/v1/channel/antigravity/oauth/start', {});
-        },
-    });
-}
-
-export function useAntigravityOAuthPoll() {
-    return useMutation({
-        mutationFn: async (state: string) => {
-            return apiClient.post<AntigravityOAuthPollResponse>('/api/v1/channel/antigravity/oauth/poll', { state });
-        },
-    });
-}

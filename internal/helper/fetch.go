@@ -7,8 +7,9 @@ import (
 	"strings"
 
 	"github.com/bestruirui/octopus/internal/model"
-	"github.com/bestruirui/octopus/internal/transformer/outbound"
 	"github.com/dlclark/regexp2"
+	"github.com/looplj/axonhub/llm"
+	"github.com/looplj/axonhub/llm/transformer"
 )
 
 func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
@@ -18,11 +19,11 @@ func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
 	}
 	fetchModel := make([]string, 0)
 	switch request.Type {
-	case outbound.OutboundTypeAnthropic:
+	case llm.APIFormatAnthropicMessage:
 		fetchModel, err = fetchAnthropicModels(client, ctx, request)
-	case outbound.OutboundTypeGemini:
+	case llm.APIFormatGeminiContents:
 		fetchModel, err = fetchGeminiModels(client, ctx, request)
-	case outbound.OutboundTypeAntigravity:
+	case model.ChannelTypeAntigravity:
 		fetchModel, err = fetchAntigravityModels(client, ctx, request)
 	default:
 		fetchModel, err = fetchOpenAIModels(client, ctx, request)
@@ -52,18 +53,18 @@ func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
 
 // refer: https://platform.openai.com/docs/api-reference/models/list
 func fetchOpenAIModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
+	baseURL := transformer.NormalizeBaseURL(request.GetBaseUrl(), "v1")
+	if request.Type == model.ChannelTypeDoubao {
+		baseURL = transformer.NormalizeBaseURL(request.GetBaseUrl(), "v3")
+	}
 	req, _ := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		request.GetBaseUrl()+"/models",
+		baseURL+"/models",
 		nil,
 	)
 	req.Header.Set("Authorization", "Bearer "+request.GetChannelKey().ChannelKey)
-	for _, header := range request.CustomHeader {
-		if header.HeaderKey != "" {
-			req.Header.Set(header.HeaderKey, header.HeaderValue)
-		}
-	}
+	applyCustomHeaders(req, request)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -88,20 +89,21 @@ func fetchOpenAIModels(client *http.Client, ctx context.Context, request model.C
 func fetchGeminiModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
 	var allModels []string
 	pageToken := ""
+	baseURL := transformer.NormalizeBaseURL(request.GetBaseUrl(), "v1beta")
+	// Gemini transformer 会保留用户显式填写的 /v1；这里同样处理，避免把 /v1 拼成 /v1/v1beta。
+	if strings.HasSuffix(strings.TrimRight(request.GetBaseUrl(), "/"), "/v1") {
+		baseURL = transformer.NormalizeBaseURL(request.GetBaseUrl(), "")
+	}
 
 	for {
 		req, _ := http.NewRequestWithContext(
 			ctx,
 			http.MethodGet,
-			request.GetBaseUrl()+"/models",
+			baseURL+"/models",
 			nil,
 		)
 		req.Header.Set("X-Goog-Api-Key", request.GetChannelKey().ChannelKey)
-		for _, header := range request.CustomHeader {
-			if header.HeaderKey != "" {
-				req.Header.Set(header.HeaderKey, header.HeaderValue)
-			}
-		}
+		applyCustomHeaders(req, request)
 		if pageToken != "" {
 			q := req.URL.Query()
 			q.Add("pageToken", pageToken)
@@ -140,21 +142,18 @@ func fetchGeminiModels(client *http.Client, ctx context.Context, request model.C
 func fetchAnthropicModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
 	var allModels []string
 	var afterID string
+	baseURL := transformer.NormalizeBaseURL(request.GetBaseUrl(), "v1")
 	for {
 
 		req, _ := http.NewRequestWithContext(
 			ctx,
 			http.MethodGet,
-			request.GetBaseUrl()+"/models",
+			baseURL+"/models",
 			nil,
 		)
 		req.Header.Set("X-Api-Key", request.GetChannelKey().ChannelKey)
 		req.Header.Set("Anthropic-Version", "2023-06-01")
-		for _, header := range request.CustomHeader {
-			if header.HeaderKey != "" {
-				req.Header.Set(header.HeaderKey, header.HeaderValue)
-			}
-		}
+		applyCustomHeaders(req, request)
 		// 设置多页参数
 		q := req.URL.Query()
 
@@ -191,6 +190,14 @@ func fetchAnthropicModels(client *http.Client, ctx context.Context, request mode
 	return allModels, nil
 }
 
+func applyCustomHeaders(req *http.Request, channel model.Channel) {
+	for _, header := range channel.CustomHeader {
+		if header.HeaderKey != "" {
+			req.Header.Set(header.HeaderKey, header.HeaderValue)
+		}
+	}
+}
+
 // fetchAntigravityModels retrieves models for Antigravity (Google Gemini Code Assist via OAuth).
 // It calls POST /v1internal:retrieveUserQuota to get quota buckets, each containing a modelId.
 // Key format: "<oauth_token>" or "<oauth_token>|<projectId>"
@@ -199,12 +206,10 @@ func fetchAntigravityModels(client *http.Client, ctx context.Context, request mo
 	keyParts := strings.SplitN(key, "|", 2)
 	token := keyParts[0]
 
-	// Determine project ID: from key suffix or from loadCodeAssist
 	projectID := ""
 	if len(keyParts) == 2 {
 		projectID = keyParts[1]
 	} else {
-		// Call loadCodeAssist to get the managed project ID
 		loadBody := `{"metadata":{"ideType":"IDE_UNSPECIFIED","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}}`
 		loadReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 			request.GetBaseUrl()+"/v1internal:loadCodeAssist",
@@ -239,7 +244,6 @@ func fetchAntigravityModels(client *http.Client, ctx context.Context, request mo
 		}
 	}
 
-	// Call retrieveUserQuota to get available models
 	quotaBody := `{"project":"` + projectID + `"}`
 	quotaReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		request.GetBaseUrl()+"/v1internal:retrieveUserQuota",
@@ -251,11 +255,7 @@ func fetchAntigravityModels(client *http.Client, ctx context.Context, request mo
 	quotaReq.Header.Set("Content-Type", "application/json")
 	quotaReq.Header.Set("X-Goog-Api-Client", "gl-node/22.17.0")
 	quotaReq.Header.Set("Client-Metadata", "ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI")
-	for _, header := range request.CustomHeader {
-		if header.HeaderKey != "" {
-			quotaReq.Header.Set(header.HeaderKey, header.HeaderValue)
-		}
-	}
+	applyCustomHeaders(quotaReq, request)
 
 	quotaResp, err := client.Do(quotaReq)
 	if err != nil {
@@ -272,7 +272,6 @@ func fetchAntigravityModels(client *http.Client, ctx context.Context, request mo
 		return nil, err
 	}
 
-	// Deduplicate model IDs
 	seen := make(map[string]bool)
 	var models []string
 	for _, bucket := range quotaPayload.Buckets {

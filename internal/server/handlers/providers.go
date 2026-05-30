@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/bestruirui/octopus/internal/conf"
+	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/server/router"
 	"github.com/gin-gonic/gin"
+	"github.com/looplj/axonhub/llm"
 )
 
 const providersGitHubURL = "https://raw.githubusercontent.com/erguotou520/octopus/dev/providers.json"
@@ -17,25 +19,25 @@ const providersGitHubURL = "https://raw.githubusercontent.com/erguotou520/octopu
 const localProvidersFile = "providers.json"
 
 type Provider struct {
-	Name        string `json:"name"`
-	ChannelType int    `json:"channel_type"`
-	BaseURL     string `json:"base_url"`
+	Name        string         `json:"name"`
+	ChannelType llm.APIFormat  `json:"channel_type"`
+	BaseURL     string         `json:"base_url"`
 }
 
 // defaultProviders is the fallback list when all other sources are unavailable
 var defaultProviders = []Provider{
-	{Name: "OpenAI", ChannelType: 0, BaseURL: "https://api.openai.com/v1"},
-	{Name: "Anthropic", ChannelType: 2, BaseURL: "https://api.anthropic.com/v1"},
-	{Name: "Gemini", ChannelType: 3, BaseURL: "https://generativelanguage.googleapis.com/v1beta"},
-	{Name: "火山引擎", ChannelType: 4, BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
-	{Name: "OpenAI Embedding", ChannelType: 5, BaseURL: "https://api.openai.com/v1"},
-	{Name: "OpenRouter", ChannelType: 0, BaseURL: "https://openrouter.ai/api/v1"},
-	{Name: "质谱 AI", ChannelType: 0, BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
-	{Name: "质谱 Coding Plan", ChannelType: 0, BaseURL: "https://open.bigmodel.cn/api/coding/paas/v4"},
-	{Name: "GitHub Copilot", ChannelType: 6, BaseURL: "https://api.githubcopilot.com"},
-	{Name: "Vercel AI Gateway", ChannelType: 0, BaseURL: "https://ai.vercel.app/api/v1"},
-	{Name: "OpenCode Zen", ChannelType: 8, BaseURL: "https://opencode.ai/zen/v1"},
-	{Name: "Antigravity", ChannelType: 7, BaseURL: "https://generativelanguage.googleapis.com/v1beta"},
+	{Name: "OpenAI", ChannelType: llm.APIFormatOpenAIChatCompletion, BaseURL: "https://api.openai.com/v1"},
+	{Name: "Anthropic", ChannelType: llm.APIFormatAnthropicMessage, BaseURL: "https://api.anthropic.com/v1"},
+	{Name: "Gemini", ChannelType: llm.APIFormatGeminiContents, BaseURL: "https://generativelanguage.googleapis.com/v1beta"},
+	{Name: "火山引擎", ChannelType: model.ChannelTypeDoubao, BaseURL: "https://ark.cn-beijing.volces.com/api/v3"},
+	{Name: "OpenAI Embedding", ChannelType: llm.APIFormatOpenAIEmbedding, BaseURL: "https://api.openai.com/v1"},
+	{Name: "OpenRouter", ChannelType: llm.APIFormatOpenAIChatCompletion, BaseURL: "https://openrouter.ai/api/v1"},
+	{Name: "质谱 AI", ChannelType: llm.APIFormatOpenAIChatCompletion, BaseURL: "https://open.bigmodel.cn/api/paas/v4"},
+	{Name: "质谱 Coding Plan", ChannelType: llm.APIFormatOpenAIChatCompletion, BaseURL: "https://open.bigmodel.cn/api/coding/paas/v4"},
+	{Name: "GitHub Copilot", ChannelType: model.ChannelTypeGithubCopilot, BaseURL: "https://api.githubcopilot.com"},
+	{Name: "Vercel AI Gateway", ChannelType: llm.APIFormatOpenAIChatCompletion, BaseURL: "https://ai.vercel.app/api/v1"},
+	{Name: "OpenCode Zen", ChannelType: model.ChannelTypeZen, BaseURL: "https://opencode.ai/zen/v1"},
+	{Name: "Antigravity", ChannelType: model.ChannelTypeAntigravity, BaseURL: "https://generativelanguage.googleapis.com/v1beta"},
 }
 
 // readLocalProviders reads providers from the local providers.json file
