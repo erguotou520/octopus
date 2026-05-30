@@ -50,8 +50,7 @@
     "key": "密钥",
     "model": "价格",
     "log": "日志",
-    "setting": "设置",
-    "doc": "API 使用文档"
+    "setting": "设置"
   },
   "toolbar": {
     "popover": {
@@ -60,6 +59,10 @@
       "sort": "排序",
       "grid": "网格",
       "list": "列表",
+      "nameAsc": "名称正序",
+      "nameDesc": "名称倒序",
+      "createdAsc": "时间正序",
+      "createdDesc": "时间倒序",
       "asc": "升序",
       "desc": "降序",
       "filter": {
@@ -112,9 +115,16 @@
       "outputCost": "输出费用"
     },
     "chart": {
+      "title": "趋势",
       "totalRequests": "请求次数",
       "totalCost": "消费金额",
-      "timePeriod": "时间范围",
+      "totalTokens": "Tokens 消耗",
+      "timePeriod": "时间周期",
+      "metricType": {
+        "cost": "金额",
+        "count": "次数",
+        "tokens": "Tokens"
+      },
       "period": {
         "today": "今天",
         "last7Days": "7天",
@@ -125,6 +135,7 @@
       "title": "排行榜",
       "sortByCost": "金额",
       "sortByCount": "次数",
+      "sortByTokens": "Tokens",
       "noData": "暂无排行数据",
       "successRate": "成功率"
     }
@@ -140,8 +151,8 @@
     },
     "language": {
       "label": "语言",
-      "zh-Hans": "简体中文",
-      "zh-Hant": "繁体中文",
+      "zh_hans": "简体中文",
+      "zh_hant": "繁体中文",
       "en": "English"
     },
     "proxyUrl": {
@@ -326,11 +337,6 @@
       },
       "clearSuccess": "日志已清空",
       "clearFailed": "清空失败"
-    },
-    "apiBaseUrl": {
-      "label": "系统 API 地址",
-      "placeholder": "http://localhost:8080",
-      "hint": "用于文档弹框中的 curl 示例地址，默认为 http://localhost:8080"
     }
   },
   "group": {
@@ -374,8 +380,7 @@
       "autoAdd": "自动添加",
       "clear": "清空",
       "selectChannel": "渠道",
-      "selectModel": "模型",
-      "nameRule": "分组名不能包含空格或冒号(:/：)"
+      "selectModel": "模型"
     },
     "mode": {
       "roundRobin": "轮询",
@@ -457,10 +462,6 @@
         "edit": "编辑渠道",
         "view": "渠道详情"
       },
-      "tabs": {
-        "stats": "统计",
-        "models": "模型"
-      },
       "sections": {
         "requests": "请求详情",
         "tokens": "Token 使用",
@@ -519,9 +520,7 @@
       "proxy": "使用代理",
       "modelCustomPlaceholder": "自定义模型名称",
       "modelAdd": "添加",
-      "selectModels": "选择模型",
-      "selectModelsConfirm": "确认",
-      "selectModelsCancel": "取消",
+      "modelRefresh": "刷新",
       "modelRefreshSuccess": "模型列表获取成功",
       "modelRefreshFailed": "模型列表获取失败",
       "modelRefreshEmpty": "未获取到模型列表",
@@ -534,13 +533,6 @@
       "typeAnthropic": "Anthropic",
       "typeGemini": "Gemini",
       "typeVolcengine": "火山引擎",
-      "typeGithubCopilot": "GitHub Copilot",
-      "typeAntigravity": "Antigravity",
-      "typeZen": "OpenCode Zen",
-      "githubCopilotHint": "GitHub Copilot 需要通过 OAuth 设备授权码方式认证",
-      "githubCopilotHintDesc": "请先在 GitHub 完成设备授权流程获取访问令牌，然后将令牌填入下方 API Key 字段。暂不支持自动授权流程。",
-      "antigravityHint": "Antigravity 需要通过 OAuth 网页授权方式认证",
-      "antigravityHintDesc": "请先在 Antigravity 官网完成授权，获取 API Token 后填入下方 API Key 字段。",
       "autoSync": "自动同步",
       "autoGroup": "自动分组",
       "autoGroupNone": "不自动分组",
@@ -549,54 +541,7 @@
       "autoGroupRegex": "正则匹配",
       "matchRegex": "匹配正则",
       "matchRegexPlaceholder": "可选：用于匹配请求模型名称的正则表达式",
-      "remark": "备注",
-      "providerPreset": "Provider 预设",
-      "providerPresetPlaceholder": "选择一个 Provider 快速填充 Base URL 和类型",
-      "namePlaceholder": "请输入渠道名称",
-      "namePlaceholderPrefix": "我的 ",
-      "baseUrlTooltip": "API 地址通常以 /v1 结尾，例如 https://api.openai.com/v1",
-      "testFirst": "测试",
-      "testFirstTitle": "测试第一个模型",
-      "testAll": "全部测试",
-      "testAllTitle": "测试所有模型",
-      "testFailed": "测试请求失败",
-      "testNeedBaseUrlAndKey": "请先填写 Base URL 和 API Key",
-      "testResultTitle": "测试结果",
-      "testResultSummary": "共 {total} 个模型，通过 {passed} 个",
-      "copilotDeviceFlow": "GitHub Device Flow 授权",
-      "copilotStartAuth": "开始 GitHub 授权",
-      "copilotUserCodeHint": "请访问授权页面，在浏览器中输入以下验证码完成授权：",
-      "copilotOpenGitHub": "打开 GitHub 授权页面",
-      "copilotWaiting": "等待授权中，请在 GitHub 页面完成操作...",
-      "copilotCodeCopied": "验证码已复制",
-      "copilotSuccess": "授权成功，API Token 已自动填入",
-      "copilotExpired": "授权码已过期，请重新发起授权",
-      "copilotDenied": "授权被拒绝",
-      "copilotRetry": "重新授权",
-      "copilotError": "授权失败，请重试",
-      "fetchedModelList": "请求到的模型",
-      "modelSelectAllFetched": "全选请求结果",
-      "modelClearFetched": "清空请求结果",
-      "antigravityOAuthTitle": "Antigravity 网页授权",
-      "antigravityConfigHint": "使用内置默认 OAuth 应用（Gemini CLI），也可通过 OCTOPUS_ANTIGRAVITY_CLIENT_ID / CLIENT_SECRET 环境变量自定义",
-      "antigravityStartAuth": "开始 Antigravity 授权",
-      "antigravityWaiting": "等待网页授权完成，请在新窗口操作...",
-      "antigravityOpenAgain": "重新打开授权页面",
-      "antigravitySuccess": "授权成功，Token 已自动填入",
-      "antigravityRetry": "重新授权",
-      "antigravityAuthFailed": "Antigravity 授权失败"
-    },
-    "models": {
-      "selectAll": "全选",
-      "deselectAll": "取消全选",
-      "test": "测试",
-      "testSelected": "测试所选",
-      "testing": "测试中...",
-      "testPassed": "通过",
-      "testFailed": "失败",
-      "noModels": "暂无模型",
-      "selectedCount": "已选 {count} 个",
-      "testSummary": "测试完成：共 {total} 个模型，通过 {passed} 个"
+      "remark": "备注"
     }
   },
   "doc": {

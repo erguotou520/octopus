@@ -10,11 +10,12 @@ import { useGroupList } from '@/api/endpoints/group';
 import { useAPIKeyList } from '@/api/endpoints/apikey';
 import { useSettingList, SettingKey } from '@/api/endpoints/setting';
 import { motion, AnimatePresence } from 'motion/react';
+import { useCopyToClipboard } from '@uidotdev/usehooks';
 import { cn } from '@/lib/utils';
 
 type ApiType = 'openai-chat' | 'openai-responses' | 'anthropic';
 type ContentTab = 'curl' | 'ccswitch';
-type CCSwitchAppType = 'claude' | 'codex' | 'gemini';
+type CCSwitchAppType = 'claude' | 'codex';
 
 const API_PATHS: Record<ApiType, string> = {
     'openai-chat': '/v1/chat/completions',
@@ -75,7 +76,7 @@ function buildCCSwitchUrl(baseUrl: string, apiKey: string, form: CCSwitchForm): 
     params.set('resource', 'provider');
     params.set('app', form.appType);
     params.set('name', form.name);
-    params.set('endpoint', baseUrl);
+    params.set('endpoint', form.appType === 'codex' ? `${baseUrl}/v1` : baseUrl);
     params.set('apiKey', apiKey);
     params.set('model', form.model);
     params.set('homepage', baseUrl);
@@ -100,6 +101,7 @@ export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
     const [apiType, setApiType] = useState<ApiType>('openai-chat');
     const [selectedApiKey, setSelectedApiKey] = useState<string>('');
     const [selectedModel, setSelectedModel] = useState<string>('');
+    const [, copyToClipboard] = useCopyToClipboard();
     const [copied, setCopied] = useState(false);
     const [nameEdited, setNameEdited] = useState(false);
     const [ccswitchForm, setCcswitchForm] = useState<CCSwitchForm>({
@@ -168,13 +170,9 @@ export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
     }, [hasGroupOption, selectedModel]);
 
     const handleCopy = async () => {
-        try {
-            await navigator.clipboard.writeText(curlCode);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch {
-            // fallback
-        }
+        await copyToClipboard(curlCode);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     const updateCCSwitch = (patch: Partial<CCSwitchForm>) =>
@@ -374,8 +372,8 @@ export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
                                     {/* CLI Tool segmented */}
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium text-card-foreground">{t('ccswitchCliTool')}</label>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {(['claude', 'codex', 'gemini'] as CCSwitchAppType[]).map((app) => (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {(['claude', 'codex'] as CCSwitchAppType[]).map((app) => (
                                                 <Button
                                                     key={app}
                                                     type="button"

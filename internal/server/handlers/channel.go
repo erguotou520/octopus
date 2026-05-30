@@ -10,6 +10,7 @@ import (
 	"github.com/bestruirui/octopus/internal/helper"
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/op"
+	"github.com/bestruirui/octopus/internal/relay/balancer"
 	"github.com/bestruirui/octopus/internal/server/middleware"
 	"github.com/bestruirui/octopus/internal/server/resp"
 	"github.com/bestruirui/octopus/internal/server/router"
@@ -105,6 +106,7 @@ func updateChannel(c *gin.Context) {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+	balancer.ResetForChannel(channel.ID)
 	stats := op.StatsChannelGet(channel.ID)
 	channel.Stats = &stats
 	go func(channel *model.Channel) {
@@ -132,6 +134,7 @@ func enableChannel(c *gin.Context) {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+	balancer.ResetForChannel(request.ID)
 	resp.Success(c, nil)
 }
 
