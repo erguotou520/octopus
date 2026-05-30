@@ -1,4 +1,6 @@
-import { AutoGroupType, ChannelType, type Channel, useFetchModel, useTestChannelModelsByConfig, type TestModelResult, useCopilotRequestDeviceCode, useCopilotPollToken, useAntigravityOAuthStart, useAntigravityOAuthPoll } from '@/api/endpoints/channel';
+import { AutoGroupType, ChannelType, type Channel, useFetchModel } from '@/api/endpoints/channel';
+// Removed in upstream merge - hooks no longer available:
+// useTestChannelModelsByConfig, TestModelResult, useCopilotRequestDeviceCode, useCopilotPollToken, useAntigravityOAuthStart, useAntigravityOAuthPoll
 import { useProviders } from '@/api/endpoints/providers';
 import {
     Select,
@@ -14,8 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/common/Toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
 import { useTranslations } from 'next-intl';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2, Info, Copy, ExternalLink, Check, Search } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2, Check, Search } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 export interface ChannelKeyFormItem {
@@ -82,10 +84,9 @@ export function ChannelForm({
     // Fetch providers for auto-fill base_url
     const { data: providers } = useProviders();
 
-    // Test state
-    const testByConfig = useTestChannelModelsByConfig();
+    // Test state (disabled - backend test endpoints removed in upstream merge)
     const [isTesting, setIsTesting] = useState(false);
-    const [testResults, setTestResults] = useState<Map<string, TestModelResult>>(new Map());
+    const [testResults, setTestResults] = useState<Map<string, { passed: boolean; error?: string; delay?: number }>>(new Map());
 
     // Ensure the form always shows at least 1 row for base_urls / keys / custom_header.
     // This avoids "empty list" UI and also keeps URL + APIKEY layout consistent.
@@ -107,7 +108,7 @@ export function ChannelForm({
     useEffect(() => {
         if (!providers) return;
 
-        const provider = providers.find((p) => p.channel_type === formData.type);
+        const provider = providers.find((p) => String(p.channel_type) === String(formData.type));
         // Only auto-fill if there's exactly one base_url and it's empty
         if (provider && formData.base_urls.length === 1 && formData.base_urls[0].url === '') {
             onFormDataChange({
@@ -129,34 +130,37 @@ export function ChannelForm({
     const [showModelSelectDialog, setShowModelSelectDialog] = useState(false);
     const [dialogSelectedModels, setDialogSelectedModels] = useState<Set<string>>(new Set());
 
-    // ---- GitHub Copilot Device Flow ----
-    const copilotDeviceCodeRef = useRef('');
-    const copilotPollIntervalRef = useRef(5);
+    // ---- GitHub Copilot Device Flow (disabled: hooks removed in upstream merge) ----
+    // const copilotDeviceCodeRef = useRef('');
+    // const copilotPollIntervalRef = useRef(5);
     const copilotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [copilotStatus, setCopilotStatus] = useState<
-        'idle' | 'loading' | 'waiting' | 'authorized' | 'expired' | 'denied' | 'error'
-    >('idle');
-    const [copilotUserCode, setCopilotUserCode] = useState('');
-    const [copilotVerificationUri, setCopilotVerificationUri] = useState('');
+    // const [copilotStatus, setCopilotStatus] = useState<
+    //     'idle' | 'loading' | 'waiting' | 'authorized' | 'expired' | 'denied' | 'error'
+    // >('idle');
+    // const [copilotUserCode, setCopilotUserCode] = useState('');
+    // const [copilotVerificationUri, setCopilotVerificationUri] = useState('');
 
     // Keep stable refs to avoid stale closures in async poll callbacks
-    const formDataRef = useRef(formData);
-    useEffect(() => { formDataRef.current = formData; }, [formData]);
-    const onFormDataChangeRef = useRef(onFormDataChange);
-    useEffect(() => { onFormDataChangeRef.current = onFormDataChange; }, [onFormDataChange]);
+    // Disabled - only used by Copilot/Antigravity flows which are removed
+    // const formDataRef = useRef(formData);
+    // useEffect(() => { formDataRef.current = formData; }, [formData]);
+    // const onFormDataChangeRef = useRef(onFormDataChange);
+    // useEffect(() => { onFormDataChangeRef.current = onFormDataChange; }, [onFormDataChange]);
 
-    const copilotRequestDeviceCode = useCopilotRequestDeviceCode();
-    const copilotPollToken = useCopilotPollToken();
+    // Copilot hooks removed in upstream merge - functionality disabled
+    // const copilotRequestDeviceCode = useCopilotRequestDeviceCode();
+    // const copilotPollToken = useCopilotPollToken();
 
-    // ---- Antigravity OAuth Web Flow ----
-    const antigravityStateRef = useRef('');
+    // ---- Antigravity OAuth Web Flow (disabled: hooks removed in upstream merge) ----
+    // const antigravityStateRef = useRef('');
     const antigravityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const [antigravityStatus, setAntigravityStatus] = useState<'idle' | 'loading' | 'waiting' | 'authorized' | 'error'>('idle');
-    const [antigravityError, setAntigravityError] = useState('');
-    const antigravityOAuthStart = useAntigravityOAuthStart();
-    const antigravityOAuthPoll = useAntigravityOAuthPoll();
+    // const [antigravityStatus, setAntigravityStatus] = useState<'idle' | 'loading' | 'waiting' | 'authorized' | 'error'>('idle');
+    // const [antigravityError, setAntigravityError] = useState('');
+    // Antigravity hooks removed in upstream merge - functionality disabled
+    // const antigravityOAuthStart = useAntigravityOAuthStart();
+    // const antigravityOAuthPoll = useAntigravityOAuthPoll();
 
-    // Cleanup timer on unmount
+    // Cleanup timer on unmount (kept for safety, timers won't be set anymore)
     useEffect(() => {
         return () => {
             if (copilotTimerRef.current) clearTimeout(copilotTimerRef.current);
@@ -164,136 +168,140 @@ export function ChannelForm({
         };
     }, []);
 
-    // Reset device flow when switching away from GitHub Copilot type
-    useEffect(() => {
-        if (formData.type !== ChannelType.GithubCopilot) {
-            if (copilotTimerRef.current) {
-                clearTimeout(copilotTimerRef.current);
-                copilotTimerRef.current = null;
-            }
-            setCopilotStatus('idle');
-            copilotDeviceCodeRef.current = '';
-        }
-    }, [formData.type]);
+    // Reset device flow when switching away from GitHub Copilot type - disabled
+    // useEffect(() => {
+    //     if (formData.type !== ChannelType.GithubCopilot) {
+    //         if (copilotTimerRef.current) {
+    //             clearTimeout(copilotTimerRef.current);
+    //             copilotTimerRef.current = null;
+    //         }
+    //         setCopilotStatus('idle');
+    //         copilotDeviceCodeRef.current = '';
+    //     }
+    // }, [formData.type]);
 
-    useEffect(() => {
-        if (formData.type !== ChannelType.Antigravity) {
-            if (antigravityTimerRef.current) {
-                clearTimeout(antigravityTimerRef.current);
-                antigravityTimerRef.current = null;
-            }
-            antigravityStateRef.current = '';
-            setAntigravityStatus('idle');
-            setAntigravityError('');
-        }
-    }, [formData.type]);
+    // useEffect(() => {
+    //     if (formData.type !== ChannelType.Antigravity) {
+    //         if (antigravityTimerRef.current) {
+    //             clearTimeout(antigravityTimerRef.current);
+    //             antigravityTimerRef.current = null;
+    //         }
+    //         antigravityStateRef.current = '';
+    //         setAntigravityStatus('idle');
+    //         setAntigravityError('');
+    //     }
+    // }, [formData.type]);
 
-    const startPollLoop = useCallback(() => {
-        const poll = async () => {
-            if (!copilotDeviceCodeRef.current) return;
-            try {
-                const result = await copilotPollToken.mutateAsync(copilotDeviceCodeRef.current);
-                if (result.access_token) {
-                    setCopilotStatus('authorized');
-                    onFormDataChangeRef.current({
-                        ...formDataRef.current,
-                        base_urls: [{ url: 'https://api.githubcopilot.com', delay: 0 }],
-                        keys: [{ enabled: true, channel_key: result.access_token }],
-                    });
-                    return; // Stop polling
-                }
-                if (result.error === 'slow_down') {
-                    copilotPollIntervalRef.current += 5;
-                } else if (result.error === 'expired_token') {
-                    setCopilotStatus('expired');
-                    return;
-                } else if (result.error === 'access_denied') {
-                    setCopilotStatus('denied');
-                    return;
-                } else if (result.error && result.error !== 'authorization_pending') {
-                    setCopilotStatus('error');
-                    return;
-                }
-            } catch {
-                // network error, retry
-            }
-            copilotTimerRef.current = setTimeout(poll, copilotPollIntervalRef.current * 1000);
-        };
-        copilotTimerRef.current = setTimeout(poll, copilotPollIntervalRef.current * 1000);
-    }, [copilotPollToken]);
+    // Copilot poll loop disabled - hook removed in upstream merge
+    // const startPollLoop = useCallback(() => {
+    //     const poll = async () => {
+    //         if (!copilotDeviceCodeRef.current) return;
+    //         try {
+    //             const result = await copilotPollToken.mutateAsync(copilotDeviceCodeRef.current);
+    //             if (result.access_token) {
+    //                 setCopilotStatus('authorized');
+    //                 onFormDataChangeRef.current({
+    //                     ...formDataRef.current,
+    //                     base_urls: [{ url: 'https://api.githubcopilot.com', delay: 0 }],
+    //                     keys: [{ enabled: true, channel_key: result.access_token }],
+    //                 });
+    //                 return; // Stop polling
+    //             }
+    //             if (result.error === 'slow_down') {
+    //                 copilotPollIntervalRef.current += 5;
+    //             } else if (result.error === 'expired_token') {
+    //                 setCopilotStatus('expired');
+    //                 return;
+    //             } else if (result.error === 'access_denied') {
+    //                 setCopilotStatus('denied');
+    //                 return;
+    //             } else if (result.error && result.error !== 'authorization_pending') {
+    //                 setCopilotStatus('error');
+    //                 return;
+    //             }
+    //         } catch {
+    //             // network error, retry
+    //         }
+    //         copilotTimerRef.current = setTimeout(poll, copilotPollIntervalRef.current * 1000);
+    //     };
+    //     copilotTimerRef.current = setTimeout(poll, copilotPollIntervalRef.current * 1000);
+    // }, [copilotPollToken]);
 
-    const handleCopilotStartAuth = async () => {
-        if (copilotTimerRef.current) {
-            clearTimeout(copilotTimerRef.current);
-            copilotTimerRef.current = null;
-        }
-        copilotDeviceCodeRef.current = '';
-        copilotPollIntervalRef.current = 5;
-        setCopilotStatus('loading');
-        try {
-            const result = await copilotRequestDeviceCode.mutateAsync();
-            copilotDeviceCodeRef.current = result.device_code;
-            copilotPollIntervalRef.current = result.interval || 5;
-            setCopilotUserCode(result.user_code);
-            setCopilotVerificationUri(result.verification_uri);
-            setCopilotStatus('waiting');
-            startPollLoop();
-        } catch {
-            setCopilotStatus('error');
-            toast.error(t('copilotError'));
-        }
-    };
+    // Copilot auth handler disabled - hook removed in upstream merge
+    // const handleCopilotStartAuth = async () => {
+    //     if (copilotTimerRef.current) {
+    //         clearTimeout(copilotTimerRef.current);
+    //         copilotTimerRef.current = null;
+    //     }
+    //     copilotDeviceCodeRef.current = '';
+    //     copilotPollIntervalRef.current = 5;
+    //     setCopilotStatus('loading');
+    //     try {
+    //         const result = await copilotRequestDeviceCode.mutateAsync();
+    //         copilotDeviceCodeRef.current = result.device_code;
+    //         copilotPollIntervalRef.current = result.interval || 5;
+    //         setCopilotUserCode(result.user_code);
+    //         setCopilotVerificationUri(result.verification_uri);
+    //         setCopilotStatus('waiting');
+    //         startPollLoop();
+    //     } catch {
+    //         setCopilotStatus('error');
+    //         toast.error(t('copilotError'));
+    //     }
+    // };
     // ---- End GitHub Copilot Device Flow ----
 
-    const startAntigravityPollLoop = useCallback(() => {
-        const poll = async () => {
-            if (!antigravityStateRef.current) return;
-            try {
-                const result = await antigravityOAuthPoll.mutateAsync(antigravityStateRef.current);
-                if (result.status === 'authorized' && result.access_token) {
-                    setAntigravityStatus('authorized');
-                    const currentBaseUrls = formDataRef.current.base_urls?.filter((u) => u.url.trim()) ?? [];
-                    onFormDataChangeRef.current({
-                        ...formDataRef.current,
-                        base_urls: currentBaseUrls.length > 0 ? currentBaseUrls : [{ url: 'https://cloudcode-pa.googleapis.com', delay: 0 }],
-                        keys: [{ enabled: true, channel_key: result.access_token }],
-                    });
-                    return;
-                }
-                if (result.status === 'failed') {
-                    setAntigravityStatus('error');
-                    setAntigravityError(result.error || t('antigravityAuthFailed'));
-                    return;
-                }
-            } catch {
-                // keep polling on temporary failures
-            }
-            antigravityTimerRef.current = setTimeout(poll, 2000);
-        };
-        antigravityTimerRef.current = setTimeout(poll, 2000);
-    }, [antigravityOAuthPoll, t]);
+    // Antigravity poll loop disabled - hook removed in upstream merge
+    // const startAntigravityPollLoop = useCallback(() => {
+    //     const poll = async () => {
+    //         if (!antigravityStateRef.current) return;
+    //         try {
+    //             const result = await antigravityOAuthPoll.mutateAsync(antigravityStateRef.current);
+    //             if (result.status === 'authorized' && result.access_token) {
+    //                 setAntigravityStatus('authorized');
+    //                 const currentBaseUrls = formDataRef.current.base_urls?.filter((u) => u.url.trim()) ?? [];
+    //                 onFormDataChangeRef.current({
+    //                     ...formDataRef.current,
+    //                     base_urls: currentBaseUrls.length > 0 ? currentBaseUrls : [{ url: 'https://cloudcode-pa.googleapis.com', delay: 0 }],
+    //                     keys: [{ enabled: true, channel_key: result.access_token }],
+    //                 });
+    //                 return;
+    //             }
+    //             if (result.status === 'failed') {
+    //                 setAntigravityStatus('error');
+    //                 setAntigravityError(result.error || t('antigravityAuthFailed'));
+    //                 return;
+    //             }
+    //         } catch {
+    //             // keep polling on temporary failures
+    //         }
+    //         antigravityTimerRef.current = setTimeout(poll, 2000);
+    //     };
+    //     antigravityTimerRef.current = setTimeout(poll, 2000);
+    // }, [antigravityOAuthPoll, t]);
 
-    const handleAntigravityStartAuth = async () => {
-        if (antigravityTimerRef.current) {
-            clearTimeout(antigravityTimerRef.current);
-            antigravityTimerRef.current = null;
-        }
-        antigravityStateRef.current = '';
-        setAntigravityError('');
-        setAntigravityStatus('loading');
-        try {
-            const result = await antigravityOAuthStart.mutateAsync();
-            antigravityStateRef.current = result.state;
-            setAntigravityStatus('waiting');
-            window.open(result.auth_url, '_blank', 'noopener,noreferrer');
-            startAntigravityPollLoop();
-        } catch (error) {
-            const message = error instanceof Error ? error.message : t('antigravityAuthFailed');
-            setAntigravityStatus('error');
-            setAntigravityError(message);
-            toast.error(t('antigravityAuthFailed'), { description: message });
-        }
-    };
+    // Antigravity auth handler disabled - hook removed in upstream merge
+    // const handleAntigravityStartAuth = async () => {
+    //     if (antigravityTimerRef.current) {
+    //         clearTimeout(antigravityTimerRef.current);
+    //         antigravityTimerRef.current = null;
+    //     }
+    //     antigravityStateRef.current = '';
+    //     setAntigravityError('');
+    //     setAntigravityStatus('loading');
+    //     try {
+    //         const result = await antigravityOAuthStart.mutateAsync();
+    //         antigravityStateRef.current = result.state;
+    //         setAntigravityStatus('waiting');
+    //         window.open(result.auth_url, '_blank', 'noopener,noreferrer');
+    //         startAntigravityPollLoop();
+    //     } catch (error) {
+    //         const message = error instanceof Error ? error.message : t('antigravityAuthFailed');
+    //         setAntigravityStatus('error');
+    //         setAntigravityError(message);
+    //         toast.error(t('antigravityAuthFailed'), { description: message });
+    //     }
+    // };
     // ---- End Antigravity OAuth Web Flow ----
 
     const fetchModel = useFetchModel();
@@ -420,41 +428,46 @@ export function ChannelForm({
         ...customModels,
     ];
 
-    const handleTestModels = async (models: string[]) => {
-        if (models.length === 0 || isTesting) return;
-        const hasBaseUrl = formData.base_urls?.some((u) => u.url.trim());
-        const hasKey = formData.keys?.some((k) => k.channel_key.trim());
-        if (!hasBaseUrl || !hasKey) {
-            toast.warning(t('testNeedBaseUrlAndKey'));
-            return;
-        }
-        setIsTesting(true);
-        try {
-            const results = await testByConfig.mutateAsync({
-                type: formData.type,
-                base_urls: formData.base_urls.filter((u) => u.url.trim()),
-                keys: formData.keys.filter((k) => k.channel_key.trim()).map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
-                proxy: formData.proxy,
-                channel_proxy: formData.channel_proxy?.trim() || null,
-                custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
-                models,
-            });
-            const map = new Map<string, TestModelResult>();
-            for (const r of results) map.set(r.model, r);
-            setTestResults(map);
-        } catch (e) {
-            toast.error(t('testFailed'));
-        } finally {
-            setIsTesting(false);
-        }
+    // Test functionality disabled - backend test endpoint removed in upstream merge
+    const handleTestModels = async (_models: string[]) => {
+        toast.warning(t('testNeedBaseUrlAndKey'));
     };
+    // Original implementation:
+    // const handleTestModels = async (models: string[]) => {
+    //     if (models.length === 0 || isTesting) return;
+    //     const hasBaseUrl = formData.base_urls?.some((u) => u.url.trim());
+    //     const hasKey = formData.keys?.some((k) => k.channel_key.trim());
+    //     if (!hasBaseUrl || !hasKey) {
+    //         toast.warning(t('testNeedBaseUrlAndKey'));
+    //         return;
+    //     }
+    //     setIsTesting(true);
+    //     try {
+    //         const results = await testByConfig.mutateAsync({
+    //             type: formData.type,
+    //             base_urls: formData.base_urls.filter((u) => u.url.trim()),
+    //             keys: formData.keys.filter((k) => k.channel_key.trim()).map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
+    //             proxy: formData.proxy,
+    //             channel_proxy: formData.channel_proxy?.trim() || null,
+    //             custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
+    //             models,
+    //         });
+    //         const map = new Map<string, TestModelResult>();
+    //         for (const r of results) map.set(r.model, r);
+    //         setTestResults(map);
+    //     } catch (e) {
+    //         toast.error(t('testFailed'));
+    //     } finally {
+    //         setIsTesting(false);
+    //     }
+    // };
 
     const handleTestFirst = () => {
-        if (allModels.length > 0) handleTestModels([allModels[0]]);
+        // Disabled - test endpoint removed
     };
 
     const handleTestAll = () => {
-        handleTestModels(allModels);
+        // Disabled - test endpoint removed
     };
 
     // Provider preset quick-select
@@ -464,7 +477,7 @@ export function ChannelForm({
         if (!provider) return;
         onFormDataChange({
             ...formData,
-            type: provider.channel_type as ChannelType,
+            type: String(provider.channel_type) as unknown as ChannelType,
             base_urls: [{ url: provider.base_url, delay: 0 }],
         });
     };
@@ -539,172 +552,16 @@ export function ChannelForm({
                 </div>
             </div>
 
-            {/* GitHub Copilot Device Flow Panel */}
-            {formData.type === ChannelType.GithubCopilot && (
-                <div className="space-y-3 rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
-                        <Info className="h-4 w-4 shrink-0" />
-                        <span>{t('copilotDeviceFlow')}</span>
-                    </div>
+            {/* GitHub Copilot Device Flow Panel - disabled: hooks removed in upstream merge */}
+            {/* {formData.type === ChannelType.GithubCopilot && (
+                ... Copilot device flow JSX removed ...
+            )} */}
 
-                    {copilotStatus === 'idle' && (
-                        <Button
-                            type="button"
-                            onClick={handleCopilotStartAuth}
-                            className="w-full rounded-xl h-11 gap-2 bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                            {t('copilotStartAuth')}
-                        </Button>
-                    )}
+            {/* Antigravity OAuth Web Flow Panel - disabled: hooks removed in upstream merge */}
+            {/* {formData.type === ChannelType.Antigravity && (
+                ... Antigravity OAuth JSX removed ...
+            )} */}
 
-                    {copilotStatus === 'loading' && (
-                        <div className="flex justify-center py-4">
-                            <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                        </div>
-                    )}
-
-                    {copilotStatus === 'waiting' && (
-                        <div className="space-y-3">
-                            <p className="text-xs text-muted-foreground">{t('copilotUserCodeHint')}</p>
-                            <div className="flex items-center gap-2">
-                                <div className="flex-1 rounded-xl border-2 border-green-500/50 bg-green-500/10 px-4 py-3 text-center">
-                                    <span className="font-mono text-2xl font-bold tracking-widest text-green-700 dark:text-green-400">
-                                        {copilotUserCode}
-                                    </span>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(copilotUserCode);
-                                        toast.success(t('copilotCodeCopied'));
-                                    }}
-                                    className="rounded-xl h-11 w-11 p-0"
-                                    title={t('copilotCodeCopied')}
-                                >
-                                    <Copy className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="w-full rounded-xl h-11 gap-2"
-                                onClick={() => window.open(copilotVerificationUri, '_blank')}
-                            >
-                                <ExternalLink className="h-4 w-4" />
-                                {t('copilotOpenGitHub')}
-                            </Button>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                <span>{t('copilotWaiting')}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {copilotStatus === 'authorized' && (
-                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                            <CheckCircle2 className="h-4 w-4" />
-                            <span>{t('copilotSuccess')}</span>
-                        </div>
-                    )}
-
-                    {(copilotStatus === 'expired' || copilotStatus === 'denied' || copilotStatus === 'error') && (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-sm text-destructive">
-                                <XCircle className="h-4 w-4" />
-                                <span>
-                                    {copilotStatus === 'expired'
-                                        ? t('copilotExpired')
-                                        : copilotStatus === 'denied'
-                                          ? t('copilotDenied')
-                                          : t('copilotError')}
-                                </span>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="w-full rounded-xl h-11"
-                                onClick={handleCopilotStartAuth}
-                            >
-                                {t('copilotRetry')}
-                            </Button>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* Antigravity OAuth Web Flow Panel */}
-            {formData.type === ChannelType.Antigravity && (
-                <div className="space-y-3 rounded-xl border border-purple-500/30 bg-purple-500/5 p-4">
-                    <div className="flex items-center gap-2 text-sm font-medium text-purple-700 dark:text-purple-300">
-                        <Info className="h-4 w-4 shrink-0" />
-                        <span>{t('antigravityOAuthTitle')}</span>
-                    </div>
-
-                    {antigravityStatus === 'idle' && (
-                        <>
-                        <p className="text-xs text-muted-foreground">{t('antigravityConfigHint')}</p>
-                        <Button
-                            type="button"
-                            onClick={handleAntigravityStartAuth}
-                            className="w-full rounded-xl h-11 gap-2 bg-purple-600 hover:bg-purple-700 text-white"
-                        >
-                            {t('antigravityStartAuth')}
-                        </Button>
-                        </>
-                    )}
-
-                    {antigravityStatus === 'loading' && (
-                        <div className="flex justify-center py-4">
-                            <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
-                        </div>
-                    )}
-
-                    {antigravityStatus === 'waiting' && (
-                        <div className="space-y-2 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                <span>{t('antigravityWaiting')}</span>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="w-full rounded-xl h-10"
-                                onClick={handleAntigravityStartAuth}
-                            >
-                                {t('antigravityOpenAgain')}
-                            </Button>
-                        </div>
-                    )}
-
-                    {antigravityStatus === 'authorized' && (
-                        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                            <CheckCircle2 className="h-4 w-4" />
-                            <span>{t('antigravitySuccess')}</span>
-                        </div>
-                    )}
-
-                    {antigravityStatus === 'error' && (
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-sm text-destructive">
-                                <XCircle className="h-4 w-4" />
-                                <span>{antigravityError || t('antigravityAuthFailed')}</span>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="w-full rounded-xl h-11"
-                                onClick={handleAntigravityStartAuth}
-                            >
-                                {t('antigravityRetry')}
-                            </Button>
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {formData.type !== ChannelType.GithubCopilot && formData.type !== ChannelType.Antigravity && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
@@ -760,9 +617,7 @@ export function ChannelForm({
                     ))}
                 </div>
             </div>
-            )}
 
-            {formData.type !== ChannelType.GithubCopilot && formData.type !== ChannelType.Antigravity && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-card-foreground">
@@ -817,7 +672,6 @@ export function ChannelForm({
                     ))}
                 </div>
             </div>
-            )}
 
             <div className="space-y-2">
                 <div className="flex items-center justify-between">

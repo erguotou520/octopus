@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { useTranslations } from 'next-intl';
 import { CheckCircle2, XCircle, Loader2, Check } from 'lucide-react';
 import type { Channel } from '@/api/endpoints/channel';
-import { useTestChannelModels } from '@/api/endpoints/channel';
+// Removed in upstream merge - hook no longer available:
+// import { useTestChannelModels } from '@/api/endpoints/channel';
 
 function Checkbox({
     checked,
@@ -31,7 +32,8 @@ interface ModelTabContentProps {
 
 export function ModelTabContent({ channel }: ModelTabContentProps) {
     const t = useTranslations('channel.models');
-    const testModels = useTestChannelModels();
+    // Test functionality disabled - backend test endpoint removed in upstream merge
+    // const testModels = useTestChannelModels();
     const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
     const [testResults, setTestResults] = useState<Map<string, { passed: boolean; error?: string; delay?: number }>>(new Map());
     const [isTesting, setIsTesting] = useState(false);
@@ -50,30 +52,29 @@ export function ModelTabContent({ channel }: ModelTabContentProps) {
         }
     };
 
-    const handleTest = async (models?: string[]) => {
-        const modelsToTest = models ?? Array.from(selectedModels);
-        if (modelsToTest.length === 0) return;
-
-        setIsTesting(true);
-        try {
-            const results = await testModels.mutateAsync({
-                channel_id: channel.id,
-                models: modelsToTest,
-            });
-
-            // Convert array results to Map
-            const resultsMap = new Map<string, { passed: boolean; error?: string; delay?: number }>();
-            for (const result of results) {
-                resultsMap.set(result.model, {
-                    passed: result.passed,
-                    error: result.error,
-                    delay: result.delay,
-                });
-            }
-            setTestResults(resultsMap);
-        } finally {
-            setIsTesting(false);
-        }
+    // Test functionality disabled - backend test endpoint removed in upstream merge
+    const handleTest = async (_models?: string[]) => {
+        // Original implementation removed:
+        // const modelsToTest = models ?? Array.from(selectedModels);
+        // if (modelsToTest.length === 0) return;
+        // setIsTesting(true);
+        // try {
+        //     const results = await testModels.mutateAsync({
+        //         channel_id: channel.id,
+        //         models: modelsToTest,
+        //     });
+        //     const resultsMap = new Map<string, { passed: boolean; error?: string; delay?: number }>();
+        //     for (const result of results) {
+        //         resultsMap.set(result.model, {
+        //             passed: result.passed,
+        //             error: result.error,
+        //             delay: result.delay,
+        //         });
+        //     }
+        //     setTestResults(resultsMap);
+        // } finally {
+        //     setIsTesting(false);
+        // }
     };
 
     const handleTestFirst = () => {

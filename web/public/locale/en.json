@@ -338,6 +338,11 @@
             },
             "clearSuccess": "Logs cleared",
             "clearFailed": "Failed to clear logs"
+        },
+        "apiBaseUrl": {
+            "label": "System API URL",
+            "placeholder": "http://localhost:8080",
+            "hint": "Used for curl example URLs in the documentation dialog, defaults to http://localhost:8080"
         }
     },
     "group": {
