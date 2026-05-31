@@ -399,7 +399,7 @@ func (ra *relayAttempt) writeStream(ctx context.Context, clientStream streams.St
 			return fmt.Errorf("first token timeout (%ds)", firstTokenTimeoutSec)
 		case r, ok := <-results:
 			if !ok {
-				log.Infof("stream end")
+				log.Infof("stream end, total events=%d", len(responseEvents))
 				if len(responseEvents) == 0 {
 					return nil
 				}
