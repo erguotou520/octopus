@@ -1,6 +1,4 @@
-import { AutoGroupType, ChannelType, type Channel, useFetchModel } from '@/api/endpoints/channel';
-// Removed in upstream merge - hooks no longer available:
-// useTestChannelModelsByConfig, TestModelResult, useCopilotRequestDeviceCode, useCopilotPollToken, useAntigravityOAuthStart, useAntigravityOAuthPoll
+import { AutoGroupType, ChannelType, type Channel, useFetchModel, useTestChannelModelsByConfig, type TestModelResult } from '@/api/endpoints/channel';
 import { useProviders } from '@/api/endpoints/providers';
 import {
     Select,
@@ -84,7 +82,7 @@ export function ChannelForm({
     // Fetch providers for auto-fill base_url
     const { data: providers } = useProviders();
 
-    // Test state (disabled - backend test endpoints removed in upstream merge)
+    const testByConfig = useTestChannelModelsByConfig();
     const [isTesting, setIsTesting] = useState(false);
     const [testResults, setTestResults] = useState<Map<string, { passed: boolean; error?: string; delay?: number }>>(new Map());
 
@@ -428,46 +426,45 @@ export function ChannelForm({
         ...customModels,
     ];
 
-    // Test functionality disabled - backend test endpoint removed in upstream merge
-    const handleTestModels = async (_models: string[]) => {
-        toast.warning(t('testNeedBaseUrlAndKey'));
+    const handleTestModels = async (models: string[]) => {
+        if (models.length === 0 || isTesting) return;
+        const hasBaseUrl = formData.base_urls?.some((u) => u.url.trim());
+        const hasKey = formData.keys?.some((k) => k.channel_key.trim());
+        if (!hasBaseUrl || !hasKey) {
+            toast.warning(t('testNeedBaseUrlAndKey'));
+            return;
+        }
+        setIsTesting(true);
+        try {
+            const results = await testByConfig.mutateAsync({
+                type: formData.type,
+                base_urls: formData.base_urls.filter((u) => u.url.trim()),
+                keys: formData.keys.filter((k) => k.channel_key.trim()).map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
+                proxy: formData.proxy,
+                channel_proxy: formData.channel_proxy?.trim() || null,
+                custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
+                models,
+            });
+            const map = new Map<string, TestModelResult>();
+            for (const r of results) map.set(r.model, r);
+            setTestResults(map);
+        } catch (e) {
+            toast.error(t('testFailed'));
+        } finally {
+            setIsTesting(false);
+        }
     };
-    // Original implementation:
-    // const handleTestModels = async (models: string[]) => {
-    //     if (models.length === 0 || isTesting) return;
-    //     const hasBaseUrl = formData.base_urls?.some((u) => u.url.trim());
-    //     const hasKey = formData.keys?.some((k) => k.channel_key.trim());
-    //     if (!hasBaseUrl || !hasKey) {
-    //         toast.warning(t('testNeedBaseUrlAndKey'));
-    //         return;
-    //     }
-    //     setIsTesting(true);
-    //     try {
-    //         const results = await testByConfig.mutateAsync({
-    //             type: formData.type,
-    //             base_urls: formData.base_urls.filter((u) => u.url.trim()),
-    //             keys: formData.keys.filter((k) => k.channel_key.trim()).map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
-    //             proxy: formData.proxy,
-    //             channel_proxy: formData.channel_proxy?.trim() || null,
-    //             custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
-    //             models,
-    //         });
-    //         const map = new Map<string, TestModelResult>();
-    //         for (const r of results) map.set(r.model, r);
-    //         setTestResults(map);
-    //     } catch (e) {
-    //         toast.error(t('testFailed'));
-    //     } finally {
-    //         setIsTesting(false);
-    //     }
-    // };
 
     const handleTestFirst = () => {
-        // Disabled - test endpoint removed
+        const models = (formData.model || '').split(',').map(m => m.trim()).filter(Boolean);
+        if (models.length === 0) return;
+        handleTestModels([models[0]]);
     };
 
     const handleTestAll = () => {
-        // Disabled - test endpoint removed
+        const models = (formData.model || '').split(',').map(m => m.trim()).filter(Boolean);
+        if (models.length === 0) return;
+        handleTestModels(models);
     };
 
     // Provider preset quick-select

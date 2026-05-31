@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/bestruirui/octopus/internal/server/router"
 	"github.com/bestruirui/octopus/internal/task"
 	"github.com/gin-gonic/gin"
+	"github.com/looplj/axonhub/llm"
 )
 
 func init() {
@@ -55,6 +57,10 @@ func init() {
 		AddRoute(
 			router.NewRoute("/last-sync-time", http.MethodGet).
 				Handle(getLastSyncTime),
+		).
+		AddRoute(
+			router.NewRoute("/test-models-by-config", http.MethodPost).
+				Handle(testChannelModelsByConfig),
 		)
 }
 
@@ -173,4 +179,117 @@ func syncChannel(c *gin.Context) {
 func getLastSyncTime(c *gin.Context) {
 	time := task.GetLastSyncModelsTime()
 	resp.Success(c, time)
+}
+
+func testChannelModelsByConfig(c *gin.Context) {
+	type TestModelResult struct {
+		Model  string `json:"model"`
+		Passed bool   `json:"passed"`
+		Error  string `json:"error,omitempty"`
+		Delay  int    `json:"delay,omitempty"`
+	}
+
+	var req struct {
+		Type         llm.APIFormat        `json:"type"`
+		BaseUrls     []model.BaseUrl      `json:"base_urls"`
+		Keys         []model.ChannelKey   `json:"keys"`
+		Proxy        bool                 `json:"proxy"`
+		ChannelProxy *string              `json:"channel_proxy"`
+		CustomHeader []model.CustomHeader `json:"custom_header"`
+		Models       []string             `json:"models"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, resp.ErrInvalidJSON)
+		return
+	}
+	if len(req.Models) == 0 {
+		resp.Error(c, http.StatusBadRequest, "models is required")
+		return
+	}
+
+	channel := &model.Channel{
+		Type:         req.Type,
+		BaseUrls:     req.BaseUrls,
+		Proxy:        req.Proxy,
+		ChannelProxy: req.ChannelProxy,
+		CustomHeader: req.CustomHeader,
+	}
+	for _, k := range req.Keys {
+		channel.Keys = append(channel.Keys, model.ChannelKey{
+			Enabled:    k.Enabled,
+			ChannelKey: k.ChannelKey,
+		})
+	}
+
+	httpClient, err := helper.ChannelHttpClient(channel)
+	if err != nil {
+		resp.Error(c, http.StatusInternalServerError, "failed to create HTTP client: "+err.Error())
+		return
+	}
+
+	results := make([]TestModelResult, 0, len(req.Models))
+	for _, modelName := range req.Models {
+		result := TestModelResult{Model: modelName}
+
+		baseURL := channel.GetBaseUrl()
+		delay, delayErr := helper.GetUrlDelay(httpClient, baseURL, c.Request.Context())
+		if delayErr != nil {
+			result.Passed = false
+			result.Error = "connectivity test failed: " + delayErr.Error()
+			results = append(results, result)
+			continue
+		}
+		result.Delay = delay
+
+		key := channel.GetChannelKey()
+		if key.ChannelKey == "" {
+			result.Passed = false
+			result.Error = "no available API key"
+			results = append(results, result)
+			continue
+		}
+
+		testBody := fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"1+1=?"}],"max_tokens":1}`, modelName)
+		testReq, reqErr := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, baseURL+"/chat/completions", strings.NewReader(testBody))
+		if reqErr != nil {
+			result.Passed = false
+			result.Error = "failed to create request: " + reqErr.Error()
+			results = append(results, result)
+			continue
+		}
+		testReq.Header.Set("Content-Type", "application/json")
+		testReq.Header.Set("Authorization", "Bearer "+key.ChannelKey)
+		for _, h := range channel.CustomHeader {
+			if h.HeaderKey != "" {
+				testReq.Header.Set(h.HeaderKey, h.HeaderValue)
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+		defer cancel()
+		testReq = testReq.WithContext(ctx)
+
+		resp2, httpErr := httpClient.Do(testReq)
+		if httpErr != nil {
+			result.Passed = false
+			result.Error = "LLM request failed: " + httpErr.Error()
+			results = append(results, result)
+			continue
+		}
+		resp2.Body.Close()
+
+		if resp2.StatusCode >= 200 && resp2.StatusCode < 300 {
+			result.Passed = true
+		} else if resp2.StatusCode == http.StatusTooManyRequests {
+			result.Passed = true
+			result.Error = "Rate limited (429), but channel is reachable"
+		} else {
+			result.Passed = false
+			result.Error = "LLM returned status: " + resp2.Status
+		}
+
+		results = append(results, result)
+	}
+
+	c.JSON(http.StatusOK, results)
 }
