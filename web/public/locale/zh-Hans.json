@@ -194,7 +194,8 @@
                 "includeStats": "包含统计",
                 "button": "下载 JSON",
                 "exporting": "导出中...",
-                "success": "开始导出"
+                "success": "开始导出",
+                "failed": "导出失败"
             },
             "import": {
                 "title": "导入（增量）",
@@ -386,7 +387,8 @@
             "autoAdd": "自动添加",
             "clear": "清空",
             "selectChannel": "渠道",
-            "selectModel": "模型"
+            "selectModel": "模型",
+            "nameRule": "分组名称不能包含空格或冒号"
         },
         "mode": {
             "roundRobin": "轮询",
@@ -467,6 +469,10 @@
             "title": {
                 "edit": "编辑渠道",
                 "view": "渠道详情"
+            },
+            "tabs": {
+                "stats": "统计",
+                "models": "模型"
             },
             "sections": {
                 "requests": "请求详情",
@@ -550,7 +556,39 @@
             "remark": "备注",
             "typeGithubCopilot": "GitHub Copilot",
             "typeAntigravity": "Antigravity",
-            "typeZen": "OpenCode Zen"
+            "typeZen": "OpenCode Zen",
+            "providerPreset": "提供商预设",
+            "providerPresetPlaceholder": "选择提供商预设",
+            "namePlaceholder": "渠道名称",
+            "namePlaceholderPrefix": "自动：",
+            "baseUrlTooltip": "该渠道的一个或多个 Base URL",
+            "antigravityAuthFailed": "Antigravity 授权失败",
+            "copilotError": "GitHub Copilot 授权失败",
+            "selectModels": "选择模型",
+            "fetchedModelList": "可用模型",
+            "modelSelectAllFetched": "全选",
+            "selectModelsCancel": "取消",
+            "selectModelsConfirm": "确认",
+            "testFirst": "测试首个",
+            "testFirstTitle": "测试第一个模型",
+            "testAll": "测试全部",
+            "testAllTitle": "测试全部模型",
+            "testNeedBaseUrlAndKey": "请先填写 Base URL 和 API Key",
+            "testFailed": "测试失败",
+            "testResultTitle": "测试结果",
+            "testResultSummary": "{passed}/{total} 通过"
+        },
+        "models": {
+            "noModels": "暂无模型",
+            "selectAll": "全选",
+            "deselectAll": "取消全选",
+            "selectedCount": "已选 {count} 个",
+            "test": "测试",
+            "testSelected": "测试选中",
+            "testing": "测试中...",
+            "testPassed": "通过",
+            "testFailed": "失败",
+            "testSummary": "{passed}/{total} 通过"
         }
     },
     "doc": {

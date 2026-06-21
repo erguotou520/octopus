@@ -194,7 +194,8 @@
                 "includeStats": "包含統計",
                 "button": "下載 JSON",
                 "exporting": "匯出中...",
-                "success": "開始匯出"
+                "success": "開始匯出",
+                "failed": "匯出失敗"
             },
             "import": {
                 "title": "匯入（增量）",
@@ -386,7 +387,8 @@
             "autoAdd": "自動新增",
             "clear": "清空",
             "selectChannel": "供應源",
-            "selectModel": "模型"
+            "selectModel": "模型",
+            "nameRule": "分組名稱不能包含空白或冒號"
         },
         "mode": {
             "roundRobin": "輪詢",
@@ -467,6 +469,10 @@
             "title": {
                 "edit": "編輯供應源",
                 "view": "供應源詳情"
+            },
+            "tabs": {
+                "stats": "統計",
+                "models": "模型"
             },
             "sections": {
                 "requests": "請求詳情",
@@ -550,7 +556,39 @@
             "remark": "備註",
             "typeGithubCopilot": "GitHub Copilot",
             "typeAntigravity": "Antigravity",
-            "typeZen": "OpenCode Zen"
+            "typeZen": "OpenCode Zen",
+            "providerPreset": "提供者預設",
+            "providerPresetPlaceholder": "選擇提供者預設",
+            "namePlaceholder": "供應源名稱",
+            "namePlaceholderPrefix": "自動：",
+            "baseUrlTooltip": "此供應源的一個或多個 Base URL",
+            "antigravityAuthFailed": "Antigravity 授權失敗",
+            "copilotError": "GitHub Copilot 授權失敗",
+            "selectModels": "選擇模型",
+            "fetchedModelList": "可用模型",
+            "modelSelectAllFetched": "全選",
+            "selectModelsCancel": "取消",
+            "selectModelsConfirm": "確認",
+            "testFirst": "測試首個",
+            "testFirstTitle": "測試第一個模型",
+            "testAll": "測試全部",
+            "testAllTitle": "測試全部模型",
+            "testNeedBaseUrlAndKey": "請先填寫 Base URL 和 API Key",
+            "testFailed": "測試失敗",
+            "testResultTitle": "測試結果",
+            "testResultSummary": "{passed}/{total} 通過"
+        },
+        "models": {
+            "noModels": "暫無模型",
+            "selectAll": "全選",
+            "deselectAll": "取消全選",
+            "selectedCount": "已選 {count} 個",
+            "test": "測試",
+            "testSelected": "測試選中",
+            "testing": "測試中...",
+            "testPassed": "通過",
+            "testFailed": "失敗",
+            "testSummary": "{passed}/{total} 通過"
         }
     },
     "doc": {

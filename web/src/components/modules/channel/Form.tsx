@@ -456,15 +456,13 @@ export function ChannelForm({
     };
 
     const handleTestFirst = () => {
-        const models = (formData.model || '').split(',').map(m => m.trim()).filter(Boolean);
-        if (models.length === 0) return;
-        handleTestModels([models[0]]);
+        if (allModels.length === 0) return;
+        handleTestModels([allModels[0]]);
     };
 
     const handleTestAll = () => {
-        const models = (formData.model || '').split(',').map(m => m.trim()).filter(Boolean);
-        if (models.length === 0) return;
-        handleTestModels(models);
+        if (allModels.length === 0) return;
+        handleTestModels(allModels);
     };
 
     // Provider preset quick-select

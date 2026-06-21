@@ -194,7 +194,8 @@
         "includeStats": "Include Stats",
         "button": "Download JSON",
         "exporting": "Exporting...",
-        "success": "Export started"
+        "success": "Export started",
+        "failed": "Export failed"
       },
       "import": {
         "title": "Import (Incremental)",
@@ -386,7 +387,8 @@
       "autoAdd": "Auto Add",
       "clear": "Clear",
       "selectChannel": "Channel",
-      "selectModel": "Model"
+      "selectModel": "Model",
+      "nameRule": "Group name cannot contain spaces or colons"
     },
     "mode": {
       "roundRobin": "Round Robin",
@@ -467,6 +469,10 @@
       "title": {
         "edit": "Edit Channel",
         "view": "Channel Details"
+      },
+      "tabs": {
+        "stats": "Stats",
+        "models": "Models"
       },
       "sections": {
         "requests": "Request Details",
@@ -550,7 +556,39 @@
       "autoGroupRegex": "Regex",
       "matchRegex": "Match Regex",
       "matchRegexPlaceholder": "Optional: regex pattern to match request model names",
-      "remark": "Remark"
+      "remark": "Remark",
+      "providerPreset": "Provider Preset",
+      "providerPresetPlaceholder": "Select a provider preset",
+      "namePlaceholder": "Channel Name",
+      "namePlaceholderPrefix": "Auto: ",
+      "baseUrlTooltip": "One or more base URLs for this channel",
+      "antigravityAuthFailed": "Antigravity authorization failed",
+      "copilotError": "GitHub Copilot authorization failed",
+      "selectModels": "Select Models",
+      "fetchedModelList": "Available Models",
+      "modelSelectAllFetched": "Select All",
+      "selectModelsCancel": "Cancel",
+      "selectModelsConfirm": "Confirm",
+      "testFirst": "Test First",
+      "testFirstTitle": "Test the first model",
+      "testAll": "Test All",
+      "testAllTitle": "Test all models",
+      "testNeedBaseUrlAndKey": "Please enter a base URL and API key first",
+      "testFailed": "Test failed",
+      "testResultTitle": "Test Results",
+      "testResultSummary": "{passed}/{total} passed"
+    },
+    "models": {
+      "noModels": "No models",
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All",
+      "selectedCount": "{count} selected",
+      "test": "Test",
+      "testSelected": "Test Selected",
+      "testing": "Testing...",
+      "testPassed": "Passed",
+      "testFailed": "Failed",
+      "testSummary": "{passed}/{total} passed"
     }
   },
   "doc": {
