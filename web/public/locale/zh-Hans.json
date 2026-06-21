@@ -576,7 +576,8 @@
             "testNeedBaseUrlAndKey": "请先填写 Base URL 和 API Key",
             "testFailed": "测试失败",
             "testResultTitle": "测试结果",
-            "testResultSummary": "{passed}/{total} 通过"
+            "testResultSummary": "{passed}/{total} 通过",
+            "remove": "删除"
         },
         "models": {
             "noModels": "暂无模型",

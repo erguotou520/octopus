@@ -576,7 +576,8 @@
       "testNeedBaseUrlAndKey": "Please enter a base URL and API key first",
       "testFailed": "Test failed",
       "testResultTitle": "Test Results",
-      "testResultSummary": "{passed}/{total} passed"
+      "testResultSummary": "{passed}/{total} passed",
+      "remove": "Remove"
     },
     "models": {
       "noModels": "No models",

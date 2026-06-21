@@ -604,7 +604,7 @@ export function ChannelForm({
                                 onClick={() => handleRemoveBaseUrl(idx)}
                                 disabled={(formData.base_urls ?? []).length <= 1}
                                 className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-destructive disabled:opacity-40 hover:bg-transparent"
-                                title="Remove"
+                                title={t('remove')}
                             >
                                 <X className="h-4 w-4" />
                             </Button>
@@ -659,7 +659,7 @@ export function ChannelForm({
                                 onClick={() => handleRemoveKey(idx)}
                                 disabled={(formData.keys ?? []).length <= 1}
                                 className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-destructive hover:bg-transparent disabled:opacity-40"
-                                title="Remove"
+                                title={t('remove')}
                             >
                                 <X className="h-4 w-4" />
                             </Button>
@@ -889,7 +889,7 @@ export function ChannelForm({
                                             onClick={() => handleRemoveHeader(idx)}
                                             disabled={(formData.custom_header ?? []).length <= 1}
                                             className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-destructive hover:bg-transparent disabled:opacity-40"
-                                            title="Remove"
+                                            title={t('remove')}
                                         >
                                             <X className="h-4 w-4" />
                                         </Button>

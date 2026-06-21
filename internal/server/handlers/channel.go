@@ -249,8 +249,8 @@ func testChannelModelsByConfig(c *gin.Context) {
 			continue
 		}
 
-		testBody := fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"1+1=?"}],"max_tokens":1}`, modelName)
-		testReq, reqErr := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, baseURL+"/chat/completions", strings.NewReader(testBody))
+		apiPath, testBody := testEndpointForType(string(req.Type), modelName)
+		testReq, reqErr := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, baseURL+apiPath, strings.NewReader(testBody))
 		if reqErr != nil {
 			result.Passed = false
 			result.Error = "failed to create request: " + reqErr.Error()
@@ -258,7 +258,15 @@ func testChannelModelsByConfig(c *gin.Context) {
 			continue
 		}
 		testReq.Header.Set("Content-Type", "application/json")
-		testReq.Header.Set("Authorization", "Bearer "+key.ChannelKey)
+		if string(req.Type) != "anthropic/messages" {
+			if string(req.Type) == "gemini/contents" {
+				testReq.Header.Set("x-goog-api-key", key.ChannelKey)
+			} else {
+				testReq.Header.Set("Authorization", "Bearer "+key.ChannelKey)
+			}
+		} else {
+			testReq.Header.Set("x-api-key", key.ChannelKey)
+		}
 		for _, h := range channel.CustomHeader {
 			if h.HeaderKey != "" {
 				testReq.Header.Set(h.HeaderKey, h.HeaderValue)
@@ -292,4 +300,22 @@ func testChannelModelsByConfig(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, results)
+}
+
+
+// testEndpointForType returns the API path suffix and request body for a given channel type.
+func testEndpointForType(channelType, modelName string) (path, body string) {
+	switch channelType {
+	case "anthropic/messages":
+		return "/messages", fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"hi"}],"max_tokens":1}`, modelName)
+	case "openai/responses":
+		return "/responses", fmt.Sprintf(`{"model":"%s","input":"hi"}`, modelName)
+	case "openai/embeddings":
+		return "/embeddings", fmt.Sprintf(`{"model":"%s","input":"hi"}`, modelName)
+	case "gemini/contents":
+		return fmt.Sprintf("/models/%s:generateContent", modelName), `{"contents":[{"parts":[{"text":"hi"}]}]}`
+	default:
+		// openai/chat_completions and others
+		return "/chat/completions", fmt.Sprintf(`{"model":"%s","messages":[{"role":"user","content":"1+1=?"}],"max_tokens":1}`, modelName)
+	}
 }
