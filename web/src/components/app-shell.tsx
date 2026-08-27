@@ -3,7 +3,9 @@ import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { useTranslations } from 'use-intl';
+import { BookOpen } from 'lucide-react';
 import Logo from '@/components/modules/logo';
+import { DocModal } from '@/components/modules/navbar/DocModal';
 import { NAV_ITEMS, useAppStore } from '@/stores/app';
 import { preloadPage } from '@/lib/page-preload';
 import { cn } from '@/lib/utils';
@@ -17,6 +19,7 @@ export function AppShell({ children, actions }: { children: ReactNode; actions?:
     const activeIndex = NAV_ITEMS.findIndex((route) => route.id === currentPage); // activeIndex 表示选中项在 Dock 中的位置。
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null); // hoveredIndex 表示当前悬浮项的位置。
     const [isNavHovered, setIsNavHovered] = useState(false); // isNavHovered 表示悬浮背景是否显示。
+    const [isDocOpen, setIsDocOpen] = useState(false);
     const hoverIndicatorRef = useRef<HTMLSpanElement>(null); // hoverIndicatorRef 用于在淡入前确认悬浮背景的新位置。
 
     return (
@@ -93,8 +96,25 @@ export function AppShell({ children, actions }: { children: ReactNode; actions?:
                             </button>
                         );
                     })}
+                    <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-sidebar-border md:mx-0 md:my-1 md:h-px md:w-6" />
+                    <button
+                        type="button"
+                        aria-label={t('doc')}
+                        onClick={() => setIsDocOpen(true)}
+                        className="relative z-20 flex size-10 items-center justify-center rounded-2xl p-2 transition-[color,scale] duration-150 ease-linear hover:z-30 hover:scale-110 active:scale-95 md:size-12 md:p-3 text-sidebar-foreground/60"
+                    >
+                        <span className="relative z-10">
+                            <BookOpen strokeWidth={2} />
+                        </span>
+                    </button>
                 </nav>
             </div>
+
+            <DocModal
+                isOpen={isDocOpen}
+                onClose={() => setIsDocOpen(false)}
+                onGoSetting={() => setCurrentPage('setting')}
+            />
 
             <header className="my-3 md:my-6 flex flex-none items-center gap-x-2 px-2">
                 <Logo size={48} />

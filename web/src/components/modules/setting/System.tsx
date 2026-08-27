@@ -134,16 +134,14 @@ export function SettingSystem() {
                 <div className="flex items-center gap-3">
                     <Link className="h-5 w-5 text-muted-foreground" />
                     <span className="text-sm font-medium">{t('apiBaseUrl.label')}</span>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <HelpCircle className="size-4 text-muted-foreground cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                {t('apiBaseUrl.hint')}
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <HelpCircle className="size-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            {t('apiBaseUrl.hint')}
+                        </TooltipContent>
+                    </Tooltip>
                 </div>
                 <Input
                     value={apiBaseUrl}

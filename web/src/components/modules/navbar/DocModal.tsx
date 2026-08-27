@@ -1,14 +1,12 @@
-'use client';
-
 import { useState, useMemo, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations } from 'use-intl';
 import { Copy, Check, BookOpen, X, HelpCircle, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useGroupList } from '@/api/endpoints/group';
-import { useAPIKeyList } from '@/api/endpoints/apikey';
-import { useSettingList, SettingKey } from '@/api/endpoints/setting';
+import { useGroupList, type Group } from '@/api/group';
+import { useAPIKeyList, type APIKey } from '@/api/apikey';
+import { useSettingList, SettingKey } from '@/api/setting';
 import { motion, AnimatePresence } from 'motion/react';
 import { useCopyToClipboard } from '@uidotdev/usehooks';
 import { cn } from '@/lib/utils';
@@ -128,12 +126,12 @@ export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
     );
 
     const invalidGroupNames = useMemo(
-        () => (groups ?? []).filter((g) => /[:：\s]/.test(g.name)).map((g) => g.name),
+        () => (groups ?? []).filter((g: Group) => /[:：\s]/.test(g.name)).map((g: Group) => g.name),
         [groups]
     );
 
     const selectedApiKeyRecord = useMemo(
-        () => (apiKeys ?? []).find((k) => k.api_key === selectedApiKey),
+        () => (apiKeys ?? []).find((k: APIKey) => k.api_key === selectedApiKey),
         [apiKeys, selectedApiKey]
     );
 
@@ -144,7 +142,7 @@ export function DocModal({ isOpen, onClose, onGoSetting }: DocModalProps) {
     }, [selectedApiKeyRecord]);
 
     const groupOptions = useMemo(() => {
-        const all = Array.from(new Set((groups ?? []).map((g) => g.name).filter(Boolean)));
+        const all = Array.from(new Set((groups ?? []).map((g: Group) => g.name).filter(Boolean)));
         if (!allowedGroupsByKey) {
             return all.map((name) => ({ value: name, label: name }));
         }
