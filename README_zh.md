@@ -4,7 +4,7 @@
 
 ### Octopus
 
-**为个人打造的简单、美观、优雅的 LLM API 聚合与负载均衡服务**
+**为个人打造的简单、美观、优雅的 LLM API 聚合服务**
 
 简体中文 | [English](README.md)
 
@@ -14,14 +14,15 @@
 ## ✨ 特性
 
 - 🔀 **多渠道聚合** - 支持接入多个 LLM 供应商渠道，统一管理
-- 🔑 **多Key支持** - 单渠道支持配置多 Key
-- ⚡ **智能优选** - 单渠道多端点，智能选择延迟最小的端点请求
-- ⚖️ **负载均衡** - 自动分配请求，确保服务稳定高效
 - 🔄 **协议互转** - 支持 OpenAI Chat / OpenAI Responses / Anthropic 三种 API 格式互相转换
 - 💰 **价格同步** - 自动更新模型价格
 - 🔃 **模型同步** - 自动与渠道同步可用模型列表，省心省力
+- 🛡️ **自动故障转移** - 上游渠道发生故障时自动切换到可用渠道
+- 🔍 **请求全链路实时可视化** - 客户端发起请求后，即可在前端实时查看完整请求链路
+- 🚧 **上游错误拦截** - 拦截所有上游错误，避免中断 Agent 任务
 - 📊 **数据统计** - 全面的请求统计、Token 消耗、费用追踪
 - 🎨 **优雅界面** - 简洁美观的 Web 管理面板
+- 📦 **轻量单文件部署** - 单个二进制文件即可运行，无需额外运行时依赖
 - 🗄️ **多数据库支持** - 支持 SQLite、MySQL、PostgreSQL
 
 ### ✨ 额外功能（相对上游项目）
@@ -48,7 +49,10 @@ docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 erguotou520
 或者使用 docker compose 运行
 
 ```bash
+
 wget https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/dev/docker-compose.yml
+
+
 docker compose up -d
 ```
 
@@ -73,9 +77,7 @@ docker compose up -d
 git clone https://github.com/erguotou520/octopus.git
 cd octopus
 # 构建前端
-cd web && pnpm install && pnpm run build && cd ..
-# 移动前端产物到 static 目录
-mv web/out static/
+cd web && pnpm install && pnpm run build
 # 启动后端服务
 go run main.go start 
 ```
@@ -85,11 +87,11 @@ go run main.go start
 **开发模式**
 
 ```bash
-cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" pnpm run dev
+cd web && pnpm install && pnpm run dev
 ## 新建终端,启动后端服务
 go run main.go start
 ## 访问前端地址
-http://localhost:3000
+http://localhost:5173
 ```
 
 ### 🔐 默认账户
@@ -179,11 +181,6 @@ http://localhost:3000
 | `OCTOPUS_DATABASE_PATH` | `database.path` |
 | `OCTOPUS_LOG_LEVEL` | `log.level` |
 | `OCTOPUS_GITHUB_PAT` | 用于获取最新版本时的速率限制(可选) |
-| `OCTOPUS_RELAY_MAX_SSE_EVENT_SIZE` | 最大 SSE 事件大小(可选) |
-| `OCTOPUS_IMAGES_BODY_MEMORY_THRESHOLD_MB` | Images 请求体内存缓存阈值，超过阈值会落盘临时文件(可选，默认 16) |
-| `OCTOPUS_IMAGES_BODY_MAX_MB` | Images 请求体最大大小限制，超过限制将拒绝请求(可选，默认 256) |
-| `OCTOPUS_IMAGES_BODY_TMP_DIR` | Images 请求体临时文件目录(可选，默认 `./cache`) |
-| `OCTOPUS_IMAGES_BODY_TMP_CLEANUP_HOURS` | 启动时清理临时文件的时间阈值(可选，默认 24) |
 
 ### OAuth 环境变量覆盖（可选）
 
@@ -286,17 +283,16 @@ Octopus 对 Copilot 与 Antigravity 登录内置了默认值，不配置也可�
 
 **Base URL 说明：**
 
-程序会根据渠道类型自动补全 API 路径，您只需填写基础 URL 即可：
+程序会根据渠道类型自动补全 API 版本和端点路径，您只需填写服务根地址即可：
 
 | 渠道类型 | 自动补全路径 | 填写 URL | 完整请求地址示例 |
 |----------|-------------|----------|-----------------|
-| OpenAI Chat | `/chat/completions` | `https://api.openai.com/v1` | `https://api.openai.com/v1/chat/completions` |
-| OpenAI Responses | `/responses` | `https://api.openai.com/v1` | `https://api.openai.com/v1/responses` |
-| OpenAI Images | `/images/generations`、`/images/edits`、`/images/variations` | `https://api.openai.com/v1` | `https://api.openai.com/v1/images/generations` |
-| Anthropic | `/messages` | `https://api.anthropic.com/v1` | `https://api.anthropic.com/v1/messages` |
-| Gemini | `/models/:model:generateContent` | `https://generativelanguage.googleapis.com/v1beta` | `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` |
+| OpenAI Chat | `/v1/chat/completions` | `https://api.openai.com` | `https://api.openai.com/v1/chat/completions` |
+| OpenAI Responses | `/v1/responses` | `https://api.openai.com` | `https://api.openai.com/v1/responses` |
+| Anthropic | `/v1/messages` | `https://api.anthropic.com` | `https://api.anthropic.com/v1/messages` |
+| Gemini | `/v1beta/models/:model:generateContent` | `https://generativelanguage.googleapis.com` | `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` |
 
-> 💡 **提示**：填写 Base URL 时无需包含具体的 API 端点路径，程序会自动处理。
+> 💡 **提示**：Base URL 无需包含 `/v1`、`/v1beta` 或具体的 API 端点路径，程序会自动处理。
 
 ---
 
@@ -308,15 +304,6 @@ Octopus 对 Copilot 与 Antigravity 登录内置了默认值，不配置也可�
 
 - **分组名称** 即程序对外暴露的模型名称
 - 调用 API 时，将请求中的 `model` 参数设置为分组名称即可
-
-**负载均衡模式：**
-
-| 模式 | 说明 |
-|------|------|
-| 🔄 **轮询** | 每次请求依次切换到下一个渠道 |
-| 🎲 **随机** | 每次请求随机选择一个可用渠道 |
-| 🛡️ **故障转移** | 优先使用高优先级渠道，仅当其故障时才切换到低优先级渠道 |
-| ⚖️ **加权分配** | 根据渠道设置的权重比例分配请求 |
 
 > 💡 **示例**：创建分组名称为 `gpt-4o`，将多个供应商的 GPT-4o 渠道加入该分组，即可通过统一的 `model: gpt-4o` 访问所有渠道。
 
@@ -388,7 +375,7 @@ print(completion.choices[0].message.content)
 {
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:8080",
-    "ANTHROPIC_AUTH_TOKEN": "sk-octopus-P48ROljwJmWBYVARjwQM8Nkiezlg7WOrXXOWDYY8TI5p9Mzg",
+    "ANTHROPIC_AUTH_TOKEN": "sk-octopus-",
     "API_TIMEOUT_MS": "3000000",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
     "ANTHROPIC_MODEL": "octopus-sonnet-4-5",
@@ -405,19 +392,24 @@ print(completion.choices[0].message.content)
 编辑 `~/.codex/config.toml`
 
 ```toml
-model = "octopus-codex" # 填写正确的分组名称
-
+model = "gpt-5.6-sol"
+model_reasoning_effort = "xhigh"
 model_provider = "octopus"
+preferred_auth_method = "apikey"
 
 [model_providers.octopus]
-name = "octopus"
 base_url = "http://127.0.0.1:8080/v1"
+name = "octopus"
+supports_websockets = false
+requires_openai_auth = true
+wire_api = "responses"
+experimental_bearer_token = "sk-octopus-"
 ```
 编辑 `~/.codex/auth.json`
 
 ```json
 {
-  "OPENAI_API_KEY": "sk-octopus-P48ROljwJmWBYVARjwQM8Nkiezlg7WOrXXOWDYY8TI5p9Mzg"
+  "OPENAI_API_KEY": ""
 }
 ```
 
@@ -437,3 +429,4 @@ Claude Code 模式还支持为 Haiku / Sonnet / Opus 分别配置不同的模型
 - 🙏 [looplj/axonhub](https://github.com/looplj/axonhub) - 本项目的 LLM API 适配模块直接源自该仓库的实现
 - 📊 [sst/models.dev](https://github.com/sst/models.dev) - AI 模型数据库，提供模型价格数据
 - 🇨🇳 [AtomGit](https://atomgit.com/bestruirui/octopus) - 国内代码托管
+- 💬 [Linux.do](https://linux.do/)

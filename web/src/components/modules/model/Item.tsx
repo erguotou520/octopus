@@ -1,13 +1,11 @@
-'use client';
-
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Pencil, Trash2, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useTranslations } from 'next-intl';
-import { useUpdateModel, useDeleteModel, type LLMInfo } from '@/api/endpoints/model';
+import { useTranslations } from 'use-intl';
+import { useUpdateModel, useDeleteModel, type LLMInfo } from '@/api/model';
 import { getModelIcon } from '@/lib/model-icons';
-import { toast } from '@/components/common/Toast';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
+import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ModelDeleteOverlay, ModelEditOverlay } from './ItemOverlays';
 import { cn } from '@/lib/utils';
 import { createPortal } from 'react-dom';
@@ -16,6 +14,9 @@ interface ModelItemProps {
     model: LLMInfo;
     layout?: 'grid' | 'list';
 }
+
+// 缓存编辑弹层实测高度，首次打开即可正确判断是否需要向上弹出
+let cachedEditOverlayHeight = 0;
 
 export const ModelItem = memo(function ModelItem({ model, layout = 'grid' }: ModelItemProps) {
     const t = useTranslations('model');
@@ -39,23 +40,35 @@ export const ModelItem = memo(function ModelItem({ model, layout = 'grid' }: Mod
     const updateModel = useUpdateModel();
     const deleteModel = useDeleteModel();
 
-    const { Avatar: ModelAvatar, color: brandColor } = useMemo(() => getModelIcon(model.name), [model.name]);
+    const { Icon, className: iconClassName, color: brandColor } = useMemo(() => getModelIcon(model.name), [model.name]);
 
     const updateOverlayRect = useCallback(() => {
         const card = cardRef.current;
         if (!card) return;
         const rect = card.getBoundingClientRect();
+        const height = cachedEditOverlayHeight;
+        // 下方空间不足时改为向上弹出，避免最后一行弹层被视口底部截断
+        const flipUp = height > 0 && rect.top + height > window.innerHeight;
+        const top = flipUp
+            ? Math.min(Math.max(rect.bottom - height, 0), Math.max(window.innerHeight - height, 0))
+            : rect.top;
         setOverlayRect((prev) => {
-            if (prev && prev.top === rect.top && prev.left === rect.left && prev.width === rect.width) {
+            if (prev && prev.top === top && prev.left === rect.left && prev.width === rect.width) {
                 return prev;
             }
-            return { top: rect.top, left: rect.left, width: rect.width };
+            return { top, left: rect.left, width: rect.width };
         });
     }, []);
 
     const closeEdit = useCallback(() => {
         setIsEditOpen(false);
     }, []);
+
+    const handleOverlayHeightChange = useCallback((height: number) => {
+        if (height === cachedEditOverlayHeight) return;
+        cachedEditOverlayHeight = height;
+        updateOverlayRect();
+    }, [updateOverlayRect]);
 
     const handleEditClick = () => {
         setConfirmDelete(false);
@@ -145,18 +158,20 @@ export const ModelItem = memo(function ModelItem({ model, layout = 'grid' }: Mod
         <article
             ref={cardRef}
             className={cn(
-                'group relative rounded-3xl border border-border bg-card transition-all duration-300 flex items-center gap-3 p-4',
+                'group relative rounded-3xl border border-border bg-card flex items-center gap-3 p-4',
                 (isEditOpen || confirmDelete) && 'z-50'
             )}
         >
-            <ModelAvatar size={52} />
+            <Icon aria-hidden="true" className={iconClassName} width={52} height={52} />
 
             <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
-                <Tooltip side="top" sideOffset={10} align="start">
-                    <TooltipTrigger className='text-base font-semibold text-card-foreground leading-tight truncate'>
-                        {model.name}
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="w-fit max-w-full text-base font-semibold text-card-foreground leading-tight truncate">
+                            {model.name}
+                        </span>
                     </TooltipTrigger>
-                    <TooltipContent key={model.name}>
+                    <TooltipContent key={model.name} side="top" sideOffset={10} align="center">
                         {model.name}
                     </TooltipContent>
                 </Tooltip>
@@ -248,18 +263,17 @@ export const ModelItem = memo(function ModelItem({ model, layout = 'grid' }: Mod
                                     width: `${overlayRect.width}px`,
                                 }}
                             >
-                                <div className="relative">
-                                    <ModelEditOverlay
-                                        layoutId={editLayoutId}
-                                        modelName={model.name}
-                                        brandColor={brandColor}
-                                        editValues={editValues}
-                                        isPending={updateModel.isPending}
-                                        onChange={setEditValues}
-                                        onCancel={handleCancelEdit}
-                                        onSave={handleSaveEdit}
-                                    />
-                                </div>
+                                <ModelEditOverlay
+                                    layoutId={editLayoutId}
+                                    onHeightChange={handleOverlayHeightChange}
+                                    modelName={model.name}
+                                    brandColor={brandColor}
+                                    editValues={editValues}
+                                    isPending={updateModel.isPending}
+                                    onChange={setEditValues}
+                                    onCancel={handleCancelEdit}
+                                    onSave={handleSaveEdit}
+                                />
                             </div>
                         )}
                     </AnimatePresence>,

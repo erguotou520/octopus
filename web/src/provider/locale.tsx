@@ -1,40 +1,37 @@
-'use client';
-
-import { type ReactNode } from 'react';
-import { NextIntlClientProvider } from 'next-intl';
+import { useEffect, type ReactNode } from 'react';
+import { IntlProvider } from 'use-intl';
 import { useSettingStore, type Locale } from '@/stores/setting';
 
-import zh_HansMessages from '../../public/locale/zh-Hans.json';
-import zh_HantMessages from '../../public/locale/zh-Hant.json';
-import enMessages from '../../public/locale/en.json';
+import zh_hansMessages from '@/locales/zh_hans.json';
+import zh_hantMessages from '@/locales/zh_hant.json';
+import enMessages from '@/locales/en.json';
 
-const messages: Record<Locale, typeof zh_HansMessages> = {
-    'zh-Hans': zh_HansMessages,
-    'zh-Hant': zh_HantMessages,
+const messages: Record<Locale, typeof zh_hansMessages> = {
+    zh_hans: zh_hansMessages,
+    zh_hant: zh_hantMessages,
     en: enMessages,
 };
 
-// Map internal locale codes to BCP 47 language tags
-// function toBCP47Locale(locale: Locale): string {
-//     const localeMap: Record<Locale, string> = {
-//         zh-Hans: 'zh-Hans',
-//         zh-Hant: 'zh-Hant',
-//         en: 'en',
-//     };
-//     return localeMap[locale];
-// }
+const languageTags: Record<Locale, string> = {
+    zh_hans: 'zh-Hans',
+    zh_hant: 'zh-Hant',
+    en: 'en',
+};
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-    const { locale } = useSettingStore();
+    const locale = useSettingStore((state) => state.locale);
+
+    useEffect(() => {
+        document.documentElement.lang = languageTags[locale];
+    }, [locale]);
 
     return (
-        <NextIntlClientProvider
-            locale={locale}
+        <IntlProvider
+            locale={languageTags[locale]}
             messages={messages[locale]}
             timeZone="Asia/Shanghai"
         >
             {children}
-        </NextIntlClientProvider>
+        </IntlProvider>
     );
 }
-

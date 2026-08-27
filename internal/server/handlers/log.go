@@ -1,15 +1,16 @@
 package handlers
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
+	"runtime"
 	"strconv"
+	"time"
 
-	"github.com/bestruirui/octopus/internal/op"
+	"github.com/bestruirui/octopus/internal/relay"
 	"github.com/bestruirui/octopus/internal/server/middleware"
 	"github.com/bestruirui/octopus/internal/server/resp"
 	"github.com/bestruirui/octopus/internal/server/router"
+	"github.com/gin-contrib/sse"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,113 +18,109 @@ func init() {
 	router.NewGroupRouter("/api/v1/log").
 		Use(middleware.Auth()).
 		AddRoute(
-			router.NewRoute("/list", http.MethodGet).
-				Handle(listLog),
+			router.NewRoute("/overview/stream", http.MethodGet).
+				Handle(streamOverview),
+		).
+		AddRoute(
+			router.NewRoute("/:id/request-body", http.MethodGet).
+				Handle(getRequestBody),
+		).
+		AddRoute(
+			router.NewRoute("/:id/response-body", http.MethodGet).
+				Handle(getResponseBody),
+		).
+		AddRoute(
+			router.NewRoute("/:request_id/:round/stop", http.MethodPost).
+				Handle(interruptRound),
 		).
 		AddRoute(
 			router.NewRoute("/clear", http.MethodDelete).
 				Handle(clearLog),
-		).
-		AddRoute(
-			router.NewRoute("/stream-token", http.MethodGet).
-				Handle(getStreamToken),
-		)
-
-	router.NewGroupRouter("/api/v1/log").
-		AddRoute(
-			router.NewRoute("/stream", http.MethodGet).
-				Handle(streamLog),
 		)
 }
 
-func listLog(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	startTimeStr := c.Query("start_time")
-	endTimeStr := c.Query("end_time")
-
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-
-	var startTime, endTime *int
-	if startTimeStr != "" && endTimeStr != "" {
-		st, err := strconv.Atoi(startTimeStr)
-		if err != nil {
-			resp.Error(c, http.StatusBadRequest, err.Error())
-			return
-		}
-		et, err := strconv.Atoi(endTimeStr)
-		if err != nil {
-			resp.Error(c, http.StatusBadRequest, err.Error())
-			return
-		}
-		startTime = &st
-		endTime = &et
-	}
-
-	logs, err := op.RelayLogList(c.Request.Context(), startTime, endTime, page, pageSize)
+// interruptRound 中止请求当前轮次匹配的上游调用。
+func interruptRound(c *gin.Context) {
+	requestID, err := strconv.ParseUint(c.Param("request_id"), 10, 64)
 	if err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.Error(c, http.StatusBadRequest, "invalid request id")
 		return
 	}
-
-	resp.Success(c, logs)
+	round, err := strconv.Atoi(c.Param("round"))
+	if err != nil || round < 1 {
+		resp.Error(c, http.StatusBadRequest, "invalid round")
+		return
+	}
+	relay.Interrupt(requestID, round)
+	c.Status(http.StatusNoContent)
 }
 
+// clearLog 删除全部已完成的请求记录，并在释放记录引用后主动执行垃圾回收。
 func clearLog(c *gin.Context) {
-	if err := op.RelayLogClear(c.Request.Context()); err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	resp.Success(c, nil)
+	relay.Clear()
+	runtime.GC()
+	c.Status(http.StatusNoContent)
 }
 
-func getStreamToken(c *gin.Context) {
-	token, err := op.RelayLogStreamTokenCreate()
+// getRequestBody 返回指定请求的原始请求体。
+func getRequestBody(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
+		resp.Error(c, http.StatusBadRequest, "invalid request id")
 		return
 	}
-	resp.Success(c, gin.H{"token": token})
+	resp.Success(c, relay.RequestBody(id))
 }
 
-func streamLog(c *gin.Context) {
-	token := c.Query("token")
-	if token == "" || !op.RelayLogStreamTokenVerify(token) {
-		resp.Error(c, http.StatusUnauthorized, "invalid stream token")
+// getResponseBody 返回指定请求当前保存的响应体。
+func getResponseBody(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		resp.Error(c, http.StatusBadRequest, "invalid request id")
 		return
 	}
+	resp.Success(c, relay.ResponseBody(id))
+}
 
-	op.RelayLogStreamTokenRevoke(token)
+// streamOverview 逐条发送建立连接时的概览及后续请求更新。
+func streamOverview(c *gin.Context) {
+	prepareSSE(c)
+	snapshot, updates := relay.OpenRequestStream()
+	defer relay.CloseRequestStream(updates)
+	for _, request := range snapshot {
+		if err := sse.Encode(c.Writer, sse.Event{Event: "log", Data: request}); err != nil {
+			return
+		}
+		c.Writer.Flush()
+	}
 
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case <-heartbeat.C:
+			if _, err := c.Writer.Write([]byte(": ping\n\n")); err != nil {
+				return
+			}
+			c.Writer.Flush()
+		case request, ok := <-updates:
+			if !ok {
+				return
+			}
+			if err := sse.Encode(c.Writer, sse.Event{Event: "log", Data: request}); err != nil {
+				return
+			}
+			c.Writer.Flush()
+		}
+	}
+}
+
+// prepareSSE 设置实时日志连接需要的响应头。
+func prepareSSE(c *gin.Context) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
-
-	logChan := op.RelayLogSubscribe()
-	defer op.RelayLogUnsubscribe(logChan)
-
-	ctx := c.Request.Context()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case log, ok := <-logChan:
-			if !ok {
-				return
-			}
-			data, err := json.Marshal(log)
-			if err != nil {
-				continue
-			}
-			c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data)))
-			c.Writer.Flush()
-		}
-	}
 }

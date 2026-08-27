@@ -1,30 +1,19 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
+	"time"
 
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/op"
+	"github.com/bestruirui/octopus/internal/relay"
 	"github.com/bestruirui/octopus/internal/server/middleware"
 	"github.com/bestruirui/octopus/internal/server/resp"
 	"github.com/bestruirui/octopus/internal/server/router"
-	"github.com/dlclark/regexp2"
+	"github.com/gin-contrib/sse"
 	"github.com/gin-gonic/gin"
 )
-
-func validateGroupName(name string) error {
-	trimmed := strings.TrimSpace(name)
-	if trimmed == "" {
-		return nil
-	}
-	if strings.ContainsAny(trimmed, " :：\t\n\r") {
-		return fmt.Errorf("group name cannot contain spaces or colon(:/：)")
-	}
-	return nil
-}
 
 func init() {
 	router.NewGroupRouter("/api/v1/group").
@@ -35,6 +24,10 @@ func init() {
 				Handle(getGroupList),
 		).
 		AddRoute(
+			router.NewRoute("/runtime/stream", http.MethodGet).
+				Handle(streamGroupRuntime),
+		).
+		AddRoute(
 			router.NewRoute("/create", http.MethodPost).
 				Handle(createGroup),
 		).
@@ -43,22 +36,52 @@ func init() {
 				Handle(updateGroup),
 		).
 		AddRoute(
+			router.NewRoute("/active/:id", http.MethodPost).
+				Handle(updateGroupActiveItem),
+		).
+		AddRoute(
 			router.NewRoute("/delete/:id", http.MethodDelete).
 				Handle(deleteGroup),
 		)
-	// AddRoute(
-	// 	router.NewRoute("/auto-add-item", http.MethodPost).
-	// 		Handle(autoAddGroupItem),
-	// )
+}
+
+// streamGroupRuntime 向前端发送分组实时运行状态。
+func streamGroupRuntime(c *gin.Context) {
+	prepareSSE(c)
+	snapshot, updates := relay.OpenRouteStream()
+	defer relay.CloseRouteStream(updates)
+	for _, update := range snapshot {
+		if err := sse.Encode(c.Writer, sse.Event{Event: "runtime", Data: update}); err != nil {
+			return
+		}
+		c.Writer.Flush()
+	}
+
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
+	for {
+		select {
+		case <-c.Request.Context().Done():
+			return
+		case <-heartbeat.C:
+			if _, err := c.Writer.Write([]byte(": ping\n\n")); err != nil {
+				return
+			}
+			c.Writer.Flush()
+		case update, ok := <-updates:
+			if !ok {
+				return
+			}
+			if err := sse.Encode(c.Writer, sse.Event{Event: "runtime", Data: update}); err != nil {
+				return
+			}
+			c.Writer.Flush()
+		}
+	}
 }
 
 func getGroupList(c *gin.Context) {
-	groups, err := op.GroupList(c.Request.Context())
-	if err != nil {
-		resp.Error(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	resp.Success(c, groups)
+	resp.Success(c, op.GroupList())
 }
 
 func createGroup(c *gin.Context) {
@@ -66,17 +89,6 @@ func createGroup(c *gin.Context) {
 	if err := c.ShouldBindJSON(&group); err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
-	}
-	if err := validateGroupName(group.Name); err != nil {
-		resp.Error(c, http.StatusBadRequest, err.Error())
-		return
-	}
-	if group.MatchRegex != "" {
-		_, err := regexp2.Compile(group.MatchRegex, regexp2.ECMAScript)
-		if err != nil {
-			resp.Error(c, http.StatusBadRequest, err.Error())
-			return
-		}
 	}
 	if err := op.GroupCreate(&group, c.Request.Context()); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
@@ -91,19 +103,6 @@ func updateGroup(c *gin.Context) {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	if req.Name != nil {
-		if err := validateGroupName(*req.Name); err != nil {
-			resp.Error(c, http.StatusBadRequest, err.Error())
-			return
-		}
-	}
-	if req.MatchRegex != nil {
-		_, err := regexp2.Compile(*req.MatchRegex, regexp2.ECMAScript)
-		if err != nil {
-			resp.Error(c, http.StatusBadRequest, err.Error())
-			return
-		}
-	}
 	group, err := op.GroupUpdate(&req, c.Request.Context())
 	if err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
@@ -112,36 +111,35 @@ func updateGroup(c *gin.Context) {
 	resp.Success(c, group)
 }
 
-func deleteGroup(c *gin.Context) {
-	id := c.Param("id")
-	idNum, err := strconv.Atoi(id)
+// updateGroupActiveItem 更新分组当前手动指定的渠道模型成员。
+func updateGroupActiveItem(c *gin.Context) {
+	groupID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		resp.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := op.GroupDel(idNum, c.Request.Context()); err != nil {
+	var req model.GroupActiveItemUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	group, err := op.GroupActiveItemUpdate(groupID, &req, c.Request.Context())
+	if err != nil {
+		resp.Error(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	resp.Success(c, group)
+}
+
+func deleteGroup(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		resp.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := op.GroupDel(id, c.Request.Context()); err != nil {
 		resp.Error(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	resp.Success(c, "group deleted successfully")
 }
-
-// func autoAddGroupItem(c *gin.Context) {
-// 	var req struct {
-// 		ID int `json:"id"`
-// 	}
-// 	if err := c.ShouldBindJSON(&req); err != nil {
-// 		resp.Error(c, http.StatusBadRequest, err.Error())
-// 		return
-// 	}
-// 	if req.ID <= 0 {
-// 		resp.Error(c, http.StatusBadRequest, "invalid id")
-// 		return
-// 	}
-// 	err := worker.AutoAddGroupItem(req.ID, c.Request.Context())
-// 	if err != nil {
-// 		resp.Error(c, http.StatusInternalServerError, err.Error())
-// 		return
-// 	}
-// 	resp.Success(c, nil)
-// }

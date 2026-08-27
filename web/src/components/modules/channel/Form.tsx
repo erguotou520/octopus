@@ -1,5 +1,13 @@
-import { AutoGroupType, ChannelType, type Channel, useFetchModel, useTestChannelModelsByConfig, type TestModelResult } from '@/api/endpoints/channel';
-import { useProviders } from '@/api/endpoints/providers';
+import {
+    ChannelType,
+    type Channel,
+    type ChannelModelInput,
+    type UpdateChannelRequest,
+    useCreateChannel,
+    useFetchModel,
+    useUpdateChannel,
+} from '@/api/channel';
+import { useMorphingDialog } from '@/components/ui/morphing-dialog';
 import {
     Select,
     SelectContent,
@@ -11,500 +19,189 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { toast } from '@/components/common/Toast';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
-import { useTranslations } from 'next-intl';
-import { useEffect, useRef, useState } from 'react';
-import { X, Plus, HelpCircle, CheckCircle2, XCircle, Loader2, Check, Search } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-
-export interface ChannelKeyFormItem {
-    id?: number;
-    enabled: boolean;
-    channel_key: string;
-    status_code?: number;
-    last_use_time_stamp?: number;
-    total_cost?: number;
-    remark?: string;
-}
-
-export interface ChannelFormData {
-    name: string;
-    type: ChannelType;
-    base_urls: Channel['base_urls'];
-    custom_header: Channel['custom_header'];
-    channel_proxy: string;
-    param_override: string;
-    keys: ChannelKeyFormItem[];
-    model: string;
-    custom_model: string;
-    enabled: boolean;
-    proxy: boolean;
-    auto_sync: boolean;
-    auto_group: AutoGroupType;
-    match_regex: string;
-}
-
-export interface ChannelFormProps {
-    formData: ChannelFormData;
-    onFormDataChange: (data: ChannelFormData) => void;
-    onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-    isPending: boolean;
-    submitText: string;
-    pendingText: string;
-    onCancel?: () => void;
-    cancelText?: string;
-    idPrefix?: string;
-    channelId?: number;
-}
-
 import {
     Accordion,
     AccordionContent,
     AccordionItem,
     AccordionTrigger,
-} from "@/components/ui/accordion";
+} from '@/components/ui/accordion';
+import { toast } from 'sonner';
+import { useTranslations } from 'use-intl';
+import { useState } from 'react';
+import { RefreshCw, X, Plus } from 'lucide-react';
 
-export function ChannelForm({
-    formData,
-    onFormDataChange,
-    onSubmit,
-    isPending,
-    submitText,
-    pendingText,
-    onCancel,
-    cancelText,
-    idPrefix = 'channel',
-}: ChannelFormProps) {
+interface ChannelFormData {
+    name: string;
+    type: ChannelType;
+    base_url: string;
+    key: string;
+    custom_header: Channel['custom_header'];
+    channel_proxy: string;
+    param_override: string;
+    models: ChannelModelInput[];
+    enabled: boolean;
+    proxy: boolean;
+    auto_sync: boolean;
+    match_regex: string;
+}
+
+// 新建渠道的初始表单值, 自定义 Header 至少保留一行
+const emptyFormData: ChannelFormData = {
+    name: '',
+    type: ChannelType.OpenAIChat,
+    base_url: '',
+    key: '',
+    custom_header: [{ header_key: '', header_value: '' }],
+    channel_proxy: '',
+    param_override: '',
+    models: [],
+    auto_sync: false,
+    enabled: true,
+    proxy: false,
+    match_regex: '',
+};
+
+// 忽略顺序生成模型集合的比较键
+const modelsKey = (models: ChannelModelInput[]) => models.map((model) => `${model.source}:${model.name}`).sort().join(',');
+
+// ChannelForm 新建与编辑共用: 传入 channel 时提交变更字段, 否则创建新渠道; 提交或取消后关闭所在弹窗
+export function ChannelForm({ channel }: { channel?: Channel }) {
     const t = useTranslations('channel.form');
-    const tModels = useTranslations('channel.models');
-
-    // Fetch providers for auto-fill base_url
-    const { data: providers } = useProviders();
-
-    const testByConfig = useTestChannelModelsByConfig();
-    const [isTesting, setIsTesting] = useState(false);
-    const [testResults, setTestResults] = useState<Map<string, { passed: boolean; error?: string; delay?: number }>>(new Map());
-
-    // Ensure the form always shows at least 1 row for base_urls / keys / custom_header.
-    // This avoids "empty list" UI and also keeps URL + APIKEY layout consistent.
-    useEffect(() => {
-        if (!formData.base_urls || formData.base_urls.length === 0) {
-            onFormDataChange({ ...formData, base_urls: [{ url: '', delay: 0 }] });
-            return;
-        }
-        if (!formData.keys || formData.keys.length === 0) {
-            onFormDataChange({ ...formData, keys: [{ enabled: true, channel_key: '' }] });
-            return;
-        }
-        if (!formData.custom_header || formData.custom_header.length === 0) {
-            onFormDataChange({ ...formData, custom_header: [{ header_key: '', header_value: '' }] });
-        }
-    }, [formData, onFormDataChange]);
-
-    // Auto-fill base_url when type changes and base_url is empty
-    useEffect(() => {
-        if (!providers) return;
-
-        const provider = providers.find((p) => String(p.channel_type) === String(formData.type));
-        // Only auto-fill if there's exactly one base_url and it's empty
-        if (provider && formData.base_urls.length === 1 && formData.base_urls[0].url === '') {
-            onFormDataChange({
-                ...formData,
-                base_urls: [{ url: provider.base_url, delay: 0 }],
-            });
-        }
-    }, [formData.type, providers, formData.base_urls]);
-
-    const autoModels = formData.model
-        ? formData.model.split(',').map((m) => m.trim()).filter(Boolean)
-        : [];
-    const customModels = formData.custom_model
-        ? formData.custom_model.split(',').map((m) => m.trim()).filter(Boolean)
-        : [];
-    const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+    const { setIsOpen } = useMorphingDialog();
+    const createChannel = useCreateChannel();
+    const updateChannel = useUpdateChannel();
+    const [formData, setFormData] = useState<ChannelFormData>(channel ? {
+        name: channel.name,
+        type: channel.type,
+        enabled: channel.enabled,
+        base_url: channel.base_url,
+        key: channel.key,
+        custom_header: channel.custom_header.length > 0 ? channel.custom_header : [{ header_key: '', header_value: '' }],
+        channel_proxy: channel.channel_proxy ?? '',
+        param_override: channel.param_override ?? '',
+        models: channel.models.map(({ name, source }) => ({ name, source })),
+        proxy: channel.proxy,
+        auto_sync: channel.auto_sync,
+        match_regex: channel.match_regex ?? '',
+    } : emptyFormData);
+    // 新建和编辑共存时隔离表单控件的 id
+    const idPrefix = channel ? `channel-${channel.id}` : 'new-channel';
+    const isPending = channel ? updateChannel.isPending : createChannel.isPending;
+    const autoModels = formData.models.filter((model) => model.source === 'auto').map((model) => model.name);
+    const manualModels = formData.models.filter((model) => model.source === 'manual').map((model) => model.name);
+    const hasModels = formData.models.length > 0;
     const [inputValue, setInputValue] = useState('');
-    const inputRef = useRef<HTMLInputElement>(null);
-    const [showModelSelectDialog, setShowModelSelectDialog] = useState(false);
-    const [dialogSelectedModels, setDialogSelectedModels] = useState<Set<string>>(new Set());
-
-    // ---- GitHub Copilot Device Flow (disabled: hooks removed in upstream merge) ----
-    // const copilotDeviceCodeRef = useRef('');
-    // const copilotPollIntervalRef = useRef(5);
-    const copilotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    // const [copilotStatus, setCopilotStatus] = useState<
-    //     'idle' | 'loading' | 'waiting' | 'authorized' | 'expired' | 'denied' | 'error'
-    // >('idle');
-    // const [copilotUserCode, setCopilotUserCode] = useState('');
-    // const [copilotVerificationUri, setCopilotVerificationUri] = useState('');
-
-    // Keep stable refs to avoid stale closures in async poll callbacks
-    // Disabled - only used by Copilot/Antigravity flows which are removed
-    // const formDataRef = useRef(formData);
-    // useEffect(() => { formDataRef.current = formData; }, [formData]);
-    // const onFormDataChangeRef = useRef(onFormDataChange);
-    // useEffect(() => { onFormDataChangeRef.current = onFormDataChange; }, [onFormDataChange]);
-
-    // Copilot hooks removed in upstream merge - functionality disabled
-    // const copilotRequestDeviceCode = useCopilotRequestDeviceCode();
-    // const copilotPollToken = useCopilotPollToken();
-
-    // ---- Antigravity OAuth Web Flow (disabled: hooks removed in upstream merge) ----
-    // const antigravityStateRef = useRef('');
-    const antigravityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    // const [antigravityStatus, setAntigravityStatus] = useState<'idle' | 'loading' | 'waiting' | 'authorized' | 'error'>('idle');
-    // const [antigravityError, setAntigravityError] = useState('');
-    // Antigravity hooks removed in upstream merge - functionality disabled
-    // const antigravityOAuthStart = useAntigravityOAuthStart();
-    // const antigravityOAuthPoll = useAntigravityOAuthPoll();
-
-    // Cleanup timer on unmount (kept for safety, timers won't be set anymore)
-    useEffect(() => {
-        return () => {
-            if (copilotTimerRef.current) clearTimeout(copilotTimerRef.current);
-            if (antigravityTimerRef.current) clearTimeout(antigravityTimerRef.current);
-        };
-    }, []);
-
-    // Reset device flow when switching away from GitHub Copilot type - disabled
-    // useEffect(() => {
-    //     if (formData.type !== ChannelType.GithubCopilot) {
-    //         if (copilotTimerRef.current) {
-    //             clearTimeout(copilotTimerRef.current);
-    //             copilotTimerRef.current = null;
-    //         }
-    //         setCopilotStatus('idle');
-    //         copilotDeviceCodeRef.current = '';
-    //     }
-    // }, [formData.type]);
-
-    // useEffect(() => {
-    //     if (formData.type !== ChannelType.Antigravity) {
-    //         if (antigravityTimerRef.current) {
-    //             clearTimeout(antigravityTimerRef.current);
-    //             antigravityTimerRef.current = null;
-    //         }
-    //         antigravityStateRef.current = '';
-    //         setAntigravityStatus('idle');
-    //         setAntigravityError('');
-    //     }
-    // }, [formData.type]);
-
-    // Copilot poll loop disabled - hook removed in upstream merge
-    // const startPollLoop = useCallback(() => {
-    //     const poll = async () => {
-    //         if (!copilotDeviceCodeRef.current) return;
-    //         try {
-    //             const result = await copilotPollToken.mutateAsync(copilotDeviceCodeRef.current);
-    //             if (result.access_token) {
-    //                 setCopilotStatus('authorized');
-    //                 onFormDataChangeRef.current({
-    //                     ...formDataRef.current,
-    //                     base_urls: [{ url: 'https://api.githubcopilot.com', delay: 0 }],
-    //                     keys: [{ enabled: true, channel_key: result.access_token }],
-    //                 });
-    //                 return; // Stop polling
-    //             }
-    //             if (result.error === 'slow_down') {
-    //                 copilotPollIntervalRef.current += 5;
-    //             } else if (result.error === 'expired_token') {
-    //                 setCopilotStatus('expired');
-    //                 return;
-    //             } else if (result.error === 'access_denied') {
-    //                 setCopilotStatus('denied');
-    //                 return;
-    //             } else if (result.error && result.error !== 'authorization_pending') {
-    //                 setCopilotStatus('error');
-    //                 return;
-    //             }
-    //         } catch {
-    //             // network error, retry
-    //         }
-    //         copilotTimerRef.current = setTimeout(poll, copilotPollIntervalRef.current * 1000);
-    //     };
-    //     copilotTimerRef.current = setTimeout(poll, copilotPollIntervalRef.current * 1000);
-    // }, [copilotPollToken]);
-
-    // Copilot auth handler disabled - hook removed in upstream merge
-    // const handleCopilotStartAuth = async () => {
-    //     if (copilotTimerRef.current) {
-    //         clearTimeout(copilotTimerRef.current);
-    //         copilotTimerRef.current = null;
-    //     }
-    //     copilotDeviceCodeRef.current = '';
-    //     copilotPollIntervalRef.current = 5;
-    //     setCopilotStatus('loading');
-    //     try {
-    //         const result = await copilotRequestDeviceCode.mutateAsync();
-    //         copilotDeviceCodeRef.current = result.device_code;
-    //         copilotPollIntervalRef.current = result.interval || 5;
-    //         setCopilotUserCode(result.user_code);
-    //         setCopilotVerificationUri(result.verification_uri);
-    //         setCopilotStatus('waiting');
-    //         startPollLoop();
-    //     } catch {
-    //         setCopilotStatus('error');
-    //         toast.error(t('copilotError'));
-    //     }
-    // };
-    // ---- End GitHub Copilot Device Flow ----
-
-    // Antigravity poll loop disabled - hook removed in upstream merge
-    // const startAntigravityPollLoop = useCallback(() => {
-    //     const poll = async () => {
-    //         if (!antigravityStateRef.current) return;
-    //         try {
-    //             const result = await antigravityOAuthPoll.mutateAsync(antigravityStateRef.current);
-    //             if (result.status === 'authorized' && result.access_token) {
-    //                 setAntigravityStatus('authorized');
-    //                 const currentBaseUrls = formDataRef.current.base_urls?.filter((u) => u.url.trim()) ?? [];
-    //                 onFormDataChangeRef.current({
-    //                     ...formDataRef.current,
-    //                     base_urls: currentBaseUrls.length > 0 ? currentBaseUrls : [{ url: 'https://cloudcode-pa.googleapis.com', delay: 0 }],
-    //                     keys: [{ enabled: true, channel_key: result.access_token }],
-    //                 });
-    //                 return;
-    //             }
-    //             if (result.status === 'failed') {
-    //                 setAntigravityStatus('error');
-    //                 setAntigravityError(result.error || t('antigravityAuthFailed'));
-    //                 return;
-    //             }
-    //         } catch {
-    //             // keep polling on temporary failures
-    //         }
-    //         antigravityTimerRef.current = setTimeout(poll, 2000);
-    //     };
-    //     antigravityTimerRef.current = setTimeout(poll, 2000);
-    // }, [antigravityOAuthPoll, t]);
-
-    // Antigravity auth handler disabled - hook removed in upstream merge
-    // const handleAntigravityStartAuth = async () => {
-    //     if (antigravityTimerRef.current) {
-    //         clearTimeout(antigravityTimerRef.current);
-    //         antigravityTimerRef.current = null;
-    //     }
-    //     antigravityStateRef.current = '';
-    //     setAntigravityError('');
-    //     setAntigravityStatus('loading');
-    //     try {
-    //         const result = await antigravityOAuthStart.mutateAsync();
-    //         antigravityStateRef.current = result.state;
-    //         setAntigravityStatus('waiting');
-    //         window.open(result.auth_url, '_blank', 'noopener,noreferrer');
-    //         startAntigravityPollLoop();
-    //     } catch (error) {
-    //         const message = error instanceof Error ? error.message : t('antigravityAuthFailed');
-    //         setAntigravityStatus('error');
-    //         setAntigravityError(message);
-    //         toast.error(t('antigravityAuthFailed'), { description: message });
-    //     }
-    // };
-    // ---- End Antigravity OAuth Web Flow ----
+    const trimmedInput = inputValue.trim();
+    // 输入的模型名非空且未添加过时才允许追加
+    const canAddModel = trimmedInput !== '' && !manualModels.includes(trimmedInput) && !autoModels.includes(trimmedInput);
 
     const fetchModel = useFetchModel();
 
-    const effectiveKey =
-        formData.keys.find((k) => k.enabled && k.channel_key.trim())?.channel_key.trim() || '';
-
-    const updateModels = (nextAuto: string[], nextCustom: string[]) => {
-        const model = nextAuto.join(',');
-        const custom_model = nextCustom.join(',');
-        if (formData.model === model && formData.custom_model === custom_model) return;
-        onFormDataChange({ ...formData, model, custom_model });
+    const updateModels = (nextAuto: string[], nextManual: string[]) => {
+        const models: ChannelModelInput[] = [
+            ...nextAuto.map((name) => ({ name, source: 'auto' as const })),
+            ...nextManual.map((name) => ({ name, source: 'manual' as const })),
+        ];
+        if (JSON.stringify(formData.models) === JSON.stringify(models)) return;
+        setFormData({ ...formData, models });
     };
 
-
-
-
-
-    const handleConfirmModelSelect = () => {
-        const selected = Array.from(dialogSelectedModels);
-        // 从弹框选择的模型按“手动模型”处理，保持视觉样式一致
-        const newCustom = Array.from(new Set([...customModels, ...selected]));
-        updateModels(autoModels, newCustom);
-        setShowModelSelectDialog(false);
+    const handleRefreshModels = () => {
+        if (!formData.base_url || !formData.key) return;
+        fetchModel.mutate(
+            {
+                type: formData.type,
+                base_url: formData.base_url.trim(),
+                key: formData.key.trim(),
+                proxy: formData.proxy,
+                channel_proxy: formData.channel_proxy.trim() || null,
+                match_regex: formData.match_regex.trim() || null,
+                custom_header: formData.custom_header.filter((h) => h.header_key.trim()),
+            },
+            {
+                onSuccess: (data) => {
+                    if (data && data.length > 0) {
+                        const nextAuto = Array.from(new Set([...autoModels, ...data]
+                            .map((m) => m.trim())
+                            .filter((m) => m && !manualModels.includes(m))));
+                        updateModels(nextAuto, manualModels);
+                        toast.success(t('modelRefreshSuccess'));
+                    } else {
+                        toast.warning(t('modelRefreshEmpty'));
+                    }
+                },
+                onError: (error) => {
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    toast.error(t('modelRefreshFailed'), { description: errorMessage });
+                },
+            }
+        );
     };
 
-    const handleAddModel = (model: string) => {
-        const trimmedModel = model.trim();
-        if (trimmedModel && !customModels.includes(trimmedModel) && !autoModels.includes(trimmedModel)) {
-            updateModels(autoModels, [...customModels, trimmedModel]);
-        }
+    const handleAddModel = () => {
+        if (canAddModel) updateModels(autoModels, [...manualModels, trimmedInput]);
         setInputValue('');
-    };
-
-    const handleRemoveAutoModel = (model: string) => {
-        updateModels(autoModels.filter(m => m !== model), customModels);
-    };
-
-    const handleRemoveCustomModel = (model: string) => {
-        updateModels(autoModels, customModels.filter(m => m !== model));
-    };
-
-    const handleToggleFetchedModel = (model: string) => {
-        if (autoModels.includes(model)) {
-            updateModels(autoModels.filter((m) => m !== model), customModels);
-        } else {
-            updateModels([...autoModels, model], customModels);
-        }
-    };
-
-    const handleSelectAllFetchedModels = () => {
-        updateModels(fetchedModels, customModels);
-    };
-
-    const handleClearFetchedModels = () => {
-        updateModels(autoModels.filter((m) => !fetchedModels.includes(m)), customModels);
     };
 
     const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            if (inputValue.trim()) handleAddModel(inputValue);
+            if (trimmedInput) handleAddModel();
         }
-    };
-
-    const handleAddKey = () => {
-        onFormDataChange({
-            ...formData,
-            keys: [...formData.keys, { enabled: true, channel_key: '' }],
-        });
-    };
-
-    const handleUpdateKey = (idx: number, patch: Partial<ChannelKeyFormItem>) => {
-        const next = formData.keys.map((k, i) => (i === idx ? { ...k, ...patch } : k));
-        onFormDataChange({ ...formData, keys: next });
-    };
-
-    const handleRemoveKey = (idx: number) => {
-        const curr = formData.keys ?? [];
-        if (curr.length <= 1) return;
-        const next = curr.filter((_, i) => i !== idx);
-        onFormDataChange({ ...formData, keys: next });
-    };
-
-    const handleAddBaseUrl = () => {
-        onFormDataChange({
-            ...formData,
-            base_urls: [...(formData.base_urls ?? []), { url: '', delay: 0 }],
-        });
-    };
-
-    const handleUpdateBaseUrl = (idx: number, patch: Partial<Channel['base_urls'][number]>) => {
-        const next = (formData.base_urls ?? []).map((u, i) => (i === idx ? { ...u, ...patch } : u));
-        onFormDataChange({ ...formData, base_urls: next });
-    };
-
-    const handleRemoveBaseUrl = (idx: number) => {
-        const curr = formData.base_urls ?? [];
-        if (curr.length <= 1) return;
-        onFormDataChange({ ...formData, base_urls: curr.filter((_, i) => i !== idx) });
-    };
-
-    const handleAddHeader = () => {
-        onFormDataChange({
-            ...formData,
-            custom_header: [...(formData.custom_header ?? []), { header_key: '', header_value: '' }],
-        });
     };
 
     const handleUpdateHeader = (idx: number, patch: Partial<Channel['custom_header'][number]>) => {
-        const next = (formData.custom_header ?? []).map((h, i) => (i === idx ? { ...h, ...patch } : h));
-        onFormDataChange({ ...formData, custom_header: next });
+        const next = formData.custom_header.map((h, i) => (i === idx ? { ...h, ...patch } : h));
+        setFormData({ ...formData, custom_header: next });
     };
 
-    const handleRemoveHeader = (idx: number) => {
-        const curr = formData.custom_header ?? [];
-        if (curr.length <= 1) return;
-        onFormDataChange({ ...formData, custom_header: curr.filter((_, i) => i !== idx) });
-    };
+    // 新建提交全部字段; 编辑只提交变化字段, 空串对应后端的清空语义
+    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!hasModels) return;
 
-    // All models (auto + custom)
-    const allModels = [
-        ...autoModels,
-        ...customModels,
-    ];
+        const custom_header = formData.custom_header
+            .map((h) => ({ header_key: h.header_key.trim(), header_value: h.header_value }))
+            .filter((h) => h.header_key && h.header_value !== '');
 
-    const handleTestModels = async (models: string[]) => {
-        if (models.length === 0 || isTesting) return;
-        const hasBaseUrl = formData.base_urls?.some((u) => u.url.trim());
-        const hasKey = formData.keys?.some((k) => k.channel_key.trim());
-        if (!hasBaseUrl || !hasKey) {
-            toast.warning(t('testNeedBaseUrlAndKey'));
+        if (!channel) {
+            createChannel.mutate({
+                name: formData.name,
+                type: formData.type,
+                enabled: formData.enabled,
+                base_url: formData.base_url.trim(),
+                key: formData.key.trim(),
+                models: formData.models,
+                proxy: formData.proxy,
+                auto_sync: formData.auto_sync,
+                custom_header,
+                channel_proxy: formData.channel_proxy.trim(),
+                param_override: formData.param_override.trim(),
+                match_regex: formData.match_regex.trim(),
+            }, { onSuccess: () => setIsOpen(false) });
             return;
         }
-        setIsTesting(true);
-        try {
-            const results = await testByConfig.mutateAsync({
-                type: formData.type,
-                base_urls: formData.base_urls.filter((u) => u.url.trim()),
-                keys: formData.keys.filter((k) => k.channel_key.trim()).map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
-                proxy: formData.proxy,
-                channel_proxy: formData.channel_proxy?.trim() || null,
-                custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
-                models,
-            });
-            const map = new Map<string, TestModelResult>();
-            for (const r of results) map.set(r.model, r);
-            setTestResults(map);
-        } catch (e) {
-            toast.error(t('testFailed'));
-        } finally {
-            setIsTesting(false);
+
+        const req: UpdateChannelRequest = { id: channel.id };
+        if (formData.name !== channel.name) req.name = formData.name;
+        if (formData.type !== channel.type) req.type = formData.type;
+        if (formData.enabled !== channel.enabled) req.enabled = formData.enabled;
+        if (formData.base_url.trim() !== channel.base_url) req.base_url = formData.base_url.trim();
+        if (formData.key.trim() !== channel.key) req.key = formData.key.trim();
+        if (modelsKey(formData.models) !== modelsKey(channel.models)) req.models = formData.models;
+        if (formData.proxy !== channel.proxy) req.proxy = formData.proxy;
+        if (formData.auto_sync !== channel.auto_sync) req.auto_sync = formData.auto_sync;
+        if (JSON.stringify(custom_header) !== JSON.stringify(channel.custom_header)) req.custom_header = custom_header;
+        for (const key of ['channel_proxy', 'param_override', 'match_regex'] as const) {
+            const next = formData[key].trim();
+            if (next !== (channel[key] ?? '')) req[key] = next;
         }
-    };
 
-    const handleTestFirst = () => {
-        if (allModels.length === 0) return;
-        handleTestModels([allModels[0]]);
+        updateChannel.mutate(req, { onSuccess: () => setIsOpen(false) });
     };
-
-    const handleTestAll = () => {
-        if (allModels.length === 0) return;
-        handleTestModels(allModels);
-    };
-
-    // Provider preset quick-select
-    const handleProviderPreset = (providerName: string) => {
-        if (!providers) return;
-        const provider = providers.find((p) => p.name === providerName);
-        if (!provider) return;
-        onFormDataChange({
-            ...formData,
-            type: String(provider.channel_type) as unknown as ChannelType,
-            base_urls: [{ url: provider.base_url, delay: 0 }],
-        });
-    };
-
-    const namePlaceholder = (() => {
-        if (!providers) return t('namePlaceholder');
-        const currentUrl = formData.base_urls?.[0]?.url?.trim();
-        const p = providers.find((p) => currentUrl && p.base_url === currentUrl);
-        return p ? `${t('namePlaceholderPrefix')}${p.name}` : t('namePlaceholder');
-    })();
 
     return (
-        <>
-        <form onSubmit={onSubmit} className="space-y-4 px-1">
-            {/* Provider 快速预设选择 */}
-            {providers && providers.length > 0 && (
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-card-foreground">{t('providerPreset')}</label>
-                    <Select onValueChange={handleProviderPreset}>
-                        <SelectTrigger className="rounded-xl w-full border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            <SelectValue placeholder={t('providerPresetPlaceholder')} />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                            {providers.map((p) => (
-                                <SelectItem key={`${p.name}-${p.channel_type}`} className="rounded-xl" value={p.name}>
-                                    {p.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
+        <form onSubmit={handleSubmit} className="space-y-4 px-1">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <label htmlFor={`${idPrefix}-name`} className="text-sm font-medium text-card-foreground">
@@ -515,8 +212,7 @@ export function ChannelForm({
                         id={`${idPrefix}-name`}
                         type="text"
                         value={formData.name}
-                        onChange={(event) => onFormDataChange({ ...formData, name: event.target.value })}
-                        placeholder={namePlaceholder}
+                        onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                         required
                     />
                 </div>
@@ -527,7 +223,7 @@ export function ChannelForm({
                     </label>
                     <Select
                         value={String(formData.type)}
-                        onValueChange={(value) => onFormDataChange({ ...formData, type: value as ChannelType })}
+                        onValueChange={(value) => setFormData({ ...formData, type: value as ChannelType })}
                     >
                         <SelectTrigger id={`${idPrefix}-type`} className="rounded-xl w-full border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                             <SelectValue />
@@ -538,197 +234,58 @@ export function ChannelForm({
                             <SelectItem className='rounded-xl' value={String(ChannelType.Anthropic)}>{t('typeAnthropic')}</SelectItem>
                             <SelectItem className='rounded-xl' value={String(ChannelType.Gemini)}>{t('typeGemini')}</SelectItem>
                             <SelectItem className='rounded-xl' value={String(ChannelType.Volcengine)}>{t('typeVolcengine')}</SelectItem>
-                            <SelectItem className='rounded-xl' value={String(ChannelType.OpenAIEmbedding)}>{t('typeOpenAIEmbedding')}</SelectItem>
-                            <SelectItem className='rounded-xl' value={String(ChannelType.GithubCopilot)}>{t('typeGithubCopilot')}</SelectItem>
-                            <SelectItem className='rounded-xl' value={String(ChannelType.Antigravity)}>{t('typeAntigravity')}</SelectItem>
-                            <SelectItem className='rounded-xl' value={String(ChannelType.Zen)}>{t('typeZen')}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
             </div>
 
-            {/* GitHub Copilot Device Flow Panel - disabled: hooks removed in upstream merge */}
-            {/* {formData.type === ChannelType.GithubCopilot && (
-                ... Copilot device flow JSX removed ...
-            )} */}
-
-            {/* Antigravity OAuth Web Flow Panel - disabled: hooks removed in upstream merge */}
-            {/* {formData.type === ChannelType.Antigravity && (
-                ... Antigravity OAuth JSX removed ...
-            )} */}
-
             <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                        <label className="text-sm font-medium text-card-foreground">
-                            {t('baseUrls')} {formData.base_urls.length > 0 ? `(${formData.base_urls.length})` : ''}
-                        </label>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <HelpCircle className="size-3.5 text-muted-foreground cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    {t('baseUrlTooltip')}
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleAddBaseUrl}
-                        className="h-6 px-2 text-xs text-muted-foreground/70 hover:text-muted-foreground hover:bg-transparent"
-                    >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {t('add')}
-                    </Button>
-                </div>
-                <div className="space-y-2">
-                    {(formData.base_urls ?? []).map((u, idx) => (
-                        <div key={`baseurl-${idx}`} className="flex items-center gap-2">
-                            <Input
-                                id={`${idPrefix}-base-${idx}`}
-                                type="url"
-                                value={u.url}
-                                onChange={(e) => handleUpdateBaseUrl(idx, { url: e.target.value })}
-                                placeholder={t('baseUrlUrl')}
-                                required={idx === 0}
-                                className="rounded-xl flex-1"
-                            />
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveBaseUrl(idx)}
-                                disabled={(formData.base_urls ?? []).length <= 1}
-                                className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-destructive disabled:opacity-40 hover:bg-transparent"
-                                title={t('remove')}
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    ))}
-                </div>
+                <label htmlFor={`${idPrefix}-base-url`} className="text-sm font-medium text-card-foreground">
+                    {t('baseUrl')}
+                </label>
+                <Input
+                    id={`${idPrefix}-base-url`}
+                    type="url"
+                    value={formData.base_url}
+                    onChange={(event) => setFormData({ ...formData, base_url: event.target.value })}
+                    placeholder={t('baseUrlUrl')}
+                    required
+                    className="rounded-xl"
+                />
             </div>
 
             <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-card-foreground">
-                        {t('apiKey')} {formData.keys.length > 0 ? `(${formData.keys.length})` : ''}
-                    </label>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleAddKey}
-                        className="h-6 px-2 text-xs text-muted-foreground/70 hover:text-muted-foreground hover:bg-transparent"
-                    >
-                        <Plus className="h-3 w-3 mr-1" />
-                        {t('add')}
-                    </Button>
-                </div>
-
-                <div className="space-y-2">
-                    {(formData.keys ?? []).map((k, idx) => (
-                        <div key={k.id ?? `new-${idx}`} className="flex items-center gap-2">
-                            <Input
-                                type="text"
-                                value={k.channel_key}
-                                onChange={(e) => handleUpdateKey(idx, { channel_key: e.target.value })}
-                                placeholder={t('apiKey')}
-                                required={idx === 0}
-                                className="rounded-xl flex-1"
-                            />
-                            <Input
-                                type="text"
-                                value={k.remark ?? ''}
-                                onChange={(e) => handleUpdateKey(idx, { remark: e.target.value })}
-                                placeholder={t('remark')}
-                                className="rounded-xl w-32"
-                            />
-                            <Switch
-                                checked={k.enabled}
-                                onCheckedChange={(checked) => handleUpdateKey(idx, { enabled: checked })}
-                            />
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveKey(idx)}
-                                disabled={(formData.keys ?? []).length <= 1}
-                                className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-destructive hover:bg-transparent disabled:opacity-40"
-                                title={t('remove')}
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    ))}
-                </div>
+                <label htmlFor={`${idPrefix}-key`} className="text-sm font-medium text-card-foreground">
+                    {t('apiKey')}
+                </label>
+                <Input
+                    id={`${idPrefix}-key`}
+                    type="text"
+                    value={formData.key}
+                    onChange={(event) => setFormData({ ...formData, key: event.target.value })}
+                    placeholder={t('apiKey')}
+                    required
+                    className="rounded-xl"
+                />
             </div>
 
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-card-foreground">{t('model')}</label>
-                    <div className="flex items-center gap-1">
-                        {(effectiveKey && formData.base_urls?.[0]?.url) && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={fetchModel.isPending}
-                                onClick={() => {
-                                    // 每次打开都按当前已选模型重建预选状态，避免残留历史选择
-                                    setDialogSelectedModels(new Set(fetchedModels.filter((model) => allModels.includes(model))));
-                                    // 立即打开弹框
-                                    setShowModelSelectDialog(true);
-                                    // 如果还没有数据，则在后台请求
-                                    if (fetchedModels.length === 0) {
-                                        fetchModel.mutate(
-                                            {
-                                                type: formData.type,
-                                                base_urls: formData.base_urls,
-                                                keys: formData.keys
-                                                    .filter((k) => k.channel_key.trim())
-                                                    .map((k) => ({ enabled: k.enabled, channel_key: k.channel_key.trim() })),
-                                                proxy: formData.proxy,
-                                                channel_proxy: formData.channel_proxy?.trim() || null,
-                                                match_regex: formData.match_regex.trim() || null,
-                                                custom_header: formData.custom_header?.filter((h) => h.header_key.trim()) || [],
-                                            },
-                                            {
-                                                onSuccess: (data) => {
-                                                    if (data && data.length > 0) {
-                                                        const nextFetched = Array.from(new Set(data.map((m) => m.trim()).filter(Boolean)));
-                                                        setFetchedModels(nextFetched);
-                                                        // 拉取后再基于当前模型列表同步一次预选
-                                                        setDialogSelectedModels(new Set(nextFetched.filter((model) => allModels.includes(model))));
-                                                    } else {
-                                                        toast.warning(t('modelRefreshEmpty'));
-                                                    }
-                                                },
-                                                onError: (error) => {
-                                                    const errorMessage = error instanceof Error ? error.message : String(error);
-                                                    toast.error(t('modelRefreshFailed'), { description: errorMessage });
-                                                },
-                                            }
-                                        );
-                                    }
-                                }}
-                                className="h-6 px-2 text-xs text-muted-foreground/70 hover:text-muted-foreground hover:bg-transparent gap-1"
-                            >
-                                <Search className="h-3 w-3" />
-                                {t('selectModels')}
-                            </Button>
-                        )}
-                    </div>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRefreshModels}
+                        disabled={!formData.base_url || !formData.key || fetchModel.isPending}
+                        className="h-6 px-2 text-xs text-muted-foreground/50 hover:text-muted-foreground hover:bg-transparent"
+                    >
+                        <RefreshCw className={`h-3 w-3 mr-1 ${fetchModel.isPending ? 'animate-spin' : ''}`} />
+                        {t('modelRefresh')}
+                    </Button>
                 </div>
-                <input type="hidden" value={formData.model} />
-
                 <div className="relative">
                     <Input
-                        ref={inputRef}
                         id={`${idPrefix}-model-custom`}
                         type="text"
                         value={inputValue}
@@ -737,12 +294,12 @@ export function ChannelForm({
                         placeholder={t('modelCustomPlaceholder')}
                         className="pr-10 rounded-xl"
                     />
-                    {inputValue.trim() && !customModels.includes(inputValue.trim()) && !autoModels.includes(inputValue.trim()) && (
+                    {canAddModel && (
                         <Button
                             type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleAddModel(inputValue)}
+                            onClick={handleAddModel}
                             className="absolute rounded-lg right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                             title={t('modelAdd')}
                         >
@@ -754,9 +311,9 @@ export function ChannelForm({
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <label className="text-xs font-medium text-card-foreground">
-                            {t('modelSelected')} {(autoModels.length + customModels.length) > 0 && `(${autoModels.length + customModels.length})`}
+                            {t('modelSelected')} {hasModels && `(${formData.models.length})`}
                         </label>
-                        {(autoModels.length + customModels.length) > 0 && (
+                        {hasModels && (
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -771,26 +328,26 @@ export function ChannelForm({
                         )}
                     </div>
                     <div className="rounded-xl border border-border bg-muted/30 p-2.5 max-h-40 min-h-12 overflow-y-auto">
-                        {(autoModels.length + customModels.length) > 0 ? (
+                        {hasModels ? (
                             <div className="flex flex-wrap gap-1.5">
                                 {autoModels.map((model) => (
-                                    <Badge key={model} className="bg-primary hover:bg-primary/90">
+                                    <Badge key={model} variant="secondary" className="bg-muted hover:bg-muted/80">
                                         {model}
                                         <button
                                             type="button"
-                                            onClick={() => handleRemoveAutoModel(model)}
+                                            onClick={() => updateModels(autoModels.filter((m) => m !== model), manualModels)}
                                             className="ml-1 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
                                         >
                                             <X className="h-3 w-3" />
                                         </button>
                                     </Badge>
                                 ))}
-                                {customModels.map((model) => (
+                                {manualModels.map((model) => (
                                     <Badge key={model} className="bg-primary hover:bg-primary/90">
                                         {model}
                                         <button
                                             type="button"
-                                            onClick={() => handleRemoveCustomModel(model)}
+                                            onClick={() => updateModels(autoModels, manualModels.filter((m) => m !== model))}
                                             className="ml-1 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-1 focus:ring-ring"
                                         >
                                             <X className="h-3 w-3" />
@@ -813,40 +370,18 @@ export function ChannelForm({
                         {t('advanced')}
                     </AccordionTrigger>
                     <AccordionContent className="pt-4 px-4 pb-4 space-y-4 border-t">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label htmlFor={`${idPrefix}-auto-group`} className="text-sm font-medium text-card-foreground">
-                                    {t('autoGroup')}
-                                </label>
-                                <Select
-                                    value={String(formData.auto_group)}
-                                    onValueChange={(value) => onFormDataChange({ ...formData, auto_group: Number(value) as AutoGroupType })}
-                                >
-                                    <SelectTrigger id={`${idPrefix}-auto-group`} className="rounded-xl w-full border border-border px-4 py-2 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent className='rounded-xl'>
-                                        <SelectItem className='rounded-xl' value={String(AutoGroupType.None)}>{t('autoGroupNone')}</SelectItem>
-                                        <SelectItem className='rounded-xl' value={String(AutoGroupType.Fuzzy)}>{t('autoGroupFuzzy')}</SelectItem>
-                                        <SelectItem className='rounded-xl' value={String(AutoGroupType.Exact)}>{t('autoGroupExact')}</SelectItem>
-                                        <SelectItem className='rounded-xl' value={String(AutoGroupType.Regex)}>{t('autoGroupRegex')}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label htmlFor={`${idPrefix}-channel-proxy`} className="text-sm font-medium text-card-foreground">
-                                    {t('channelProxy')}
-                                </label>
-                                <Input
-                                    id={`${idPrefix}-channel-proxy`}
-                                    type="text"
-                                    value={formData.channel_proxy}
-                                    onChange={(e) => onFormDataChange({ ...formData, channel_proxy: e.target.value })}
-                                    placeholder={t('channelProxyPlaceholder')}
-                                    className="rounded-xl"
-                                />
-                            </div>
+                        <div className="space-y-2">
+                            <label htmlFor={`${idPrefix}-channel-proxy`} className="text-sm font-medium text-card-foreground">
+                                {t('channelProxy')}
+                            </label>
+                            <Input
+                                id={`${idPrefix}-channel-proxy`}
+                                type="text"
+                                value={formData.channel_proxy}
+                                onChange={(e) => setFormData({ ...formData, channel_proxy: e.target.value })}
+                                placeholder={t('channelProxyPlaceholder')}
+                                className="rounded-xl"
+                            />
                         </div>
 
                         <div className="space-y-2">
@@ -858,7 +393,7 @@ export function ChannelForm({
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={handleAddHeader}
+                                    onClick={() => setFormData({ ...formData, custom_header: [...formData.custom_header, { header_key: '', header_value: '' }] })}
                                     className="h-6 px-2 text-xs text-muted-foreground/70 hover:text-muted-foreground hover:bg-transparent"
                                 >
                                     <Plus className="h-3 w-3 mr-1" />
@@ -866,7 +401,7 @@ export function ChannelForm({
                                 </Button>
                             </div>
                             <div className="space-y-2">
-                                {(formData.custom_header ?? []).map((h, idx) => (
+                                {formData.custom_header.map((h, idx) => (
                                     <div key={`hdr-${idx}`} className="flex items-center gap-2">
                                         <Input
                                             type="text"
@@ -886,10 +421,10 @@ export function ChannelForm({
                                             type="button"
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => handleRemoveHeader(idx)}
-                                            disabled={(formData.custom_header ?? []).length <= 1}
+                                            onClick={() => setFormData({ ...formData, custom_header: formData.custom_header.filter((_, i) => i !== idx) })}
+                                            disabled={formData.custom_header.length <= 1}
                                             className="h-8 w-8 p-0 rounded-xl text-muted-foreground hover:text-destructive hover:bg-transparent disabled:opacity-40"
-                                            title={t('remove')}
+                                            title="Remove"
                                         >
                                             <X className="h-4 w-4" />
                                         </Button>
@@ -906,7 +441,7 @@ export function ChannelForm({
                                 id={`${idPrefix}-match-regex`}
                                 type="text"
                                 value={formData.match_regex}
-                                onChange={(e) => onFormDataChange({ ...formData, match_regex: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, match_regex: e.target.value })}
                                 placeholder={t('matchRegexPlaceholder')}
                                 className="rounded-xl"
                             />
@@ -919,7 +454,7 @@ export function ChannelForm({
                             <textarea
                                 id={`${idPrefix}-param-override`}
                                 value={formData.param_override}
-                                onChange={(e) => onFormDataChange({ ...formData, param_override: e.target.value })}
+                                onChange={(e) => setFormData({ ...formData, param_override: e.target.value })}
                                 placeholder={t('paramOverridePlaceholder')}
                                 className="min-h-28 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             />
@@ -932,7 +467,7 @@ export function ChannelForm({
                 <label className="flex items-center gap-2 cursor-pointer">
                     <Switch
                         checked={formData.enabled}
-                        onCheckedChange={(checked) => onFormDataChange({ ...formData, enabled: checked })}
+                        onCheckedChange={(checked) => setFormData({ ...formData, enabled: checked })}
                     />
                     <span className="text-sm font-medium text-card-foreground">{t('enabled')}</span>
                 </label>
@@ -940,183 +475,41 @@ export function ChannelForm({
                     <label className="flex items-center gap-2 cursor-pointer">
                         <Switch
                             checked={formData.proxy}
-                            onCheckedChange={(checked) => onFormDataChange({ ...formData, proxy: checked })}
+                            onCheckedChange={(checked) => setFormData({ ...formData, proxy: checked })}
                         />
                         <span className="text-sm text-card-foreground">{t('proxy')}</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                         <Switch
                             checked={formData.auto_sync}
-                            onCheckedChange={(checked) => onFormDataChange({ ...formData, auto_sync: checked })}
+                            onCheckedChange={(checked) => setFormData({ ...formData, auto_sync: checked })}
                         />
                         <span className="text-sm text-card-foreground">{t('autoSync')}</span>
                     </label>
                 </div>
             </div>
 
-            <div className={`flex flex-col gap-3 pt-2 ${onCancel ? 'sm:flex-row' : ''}`}>
-                {onCancel && cancelText && (
+            <div className={`flex flex-col gap-3 pt-2 ${channel ? 'sm:flex-row' : ''}`}>
+                {channel && (
                     <Button
                         type="button"
                         variant="secondary"
-                        onClick={onCancel}
+                        onClick={() => setIsOpen(false)}
                         className="w-full sm:flex-1 rounded-2xl h-12"
                     >
-                        {cancelText}
+                        {t('cancel')}
                     </Button>
                 )}
-                <div className="flex gap-2 w-full sm:flex-1">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        disabled={isTesting || allModels.length === 0}
-                        onClick={handleTestFirst}
-                        className="flex-1 rounded-2xl h-12"
-                        title={t('testFirstTitle')}
-                    >
-                        {isTesting ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : null}
-                        {t('testFirst')}
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        disabled={isTesting || allModels.length === 0}
-                        onClick={handleTestAll}
-                        className="flex-1 rounded-2xl h-12"
-                        title={t('testAllTitle')}
-                    >
-                        {isTesting ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                        ) : null}
-                        {t('testAll')}
-                    </Button>
-                    <Button
-                        type="submit"
-                        disabled={isPending}
-                        className="flex-3 rounded-2xl h-12"
-                    >
-                        {isPending ? pendingText : submitText}
-                    </Button>
-                </div>
-            </div>
-
-            {/* 测试结果摘要 */}
-            {testResults.size > 0 && (
-                <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
-                    <div className="text-xs font-medium text-card-foreground">{t('testResultTitle')}</div>
-                    <div className="space-y-1 max-h-40 overflow-y-auto">
-                        {Array.from(testResults.entries()).map(([model, result]) => (
-                            <div key={model} className="flex items-center gap-2 text-xs">
-                                {result.passed ? (
-                                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-                                ) : (
-                                    <XCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                                )}
-                                <span className="font-mono flex-1 truncate">{model}</span>
-                                {result.delay !== undefined && (
-                                    <span className="text-muted-foreground">{result.delay}ms</span>
-                                )}
-                                {result.error && (
-                                    <span className="text-red-500 truncate max-w-32" title={result.error}>{result.error}</span>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                        {t('testResultSummary', {
-                            total: testResults.size,
-                            passed: Array.from(testResults.values()).filter((r) => r.passed).length,
-                        })}
-                    </div>
-                </div>
-            )}
-        </form>
-        {/* 选择模型弹框 - 放在 form 外避免事件冒泡关闭外层弹框 */}
-        <Dialog open={showModelSelectDialog} onOpenChange={setShowModelSelectDialog}>
-            <DialogContent className="max-w-md flex flex-col max-h-[80vh] overflow-hidden">
-                <DialogHeader className="shrink-0">
-                    <div className="flex items-center justify-between">
-                        <DialogTitle>{t('fetchedModelList')}</DialogTitle>
-                        {fetchModel.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                    </div>
-                </DialogHeader>
-                {/* 全选行 */}
-                {fetchModel.isPending ? (
-                    <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                ) : fetchedModels.length === 0 ? (
-                    <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-                        {tModels('noModels')}
-                    </div>
-                ) : (
-                    <>
-                    <div
-                        className="flex items-center gap-2 px-1 py-1 cursor-pointer hover:bg-accent/5 rounded-lg shrink-0"
-                        onClick={() => {
-                            if (dialogSelectedModels.size === fetchedModels.length) {
-                                setDialogSelectedModels(new Set());
-                            } else {
-                                setDialogSelectedModels(new Set(fetchedModels));
-                            }
-                        }}
-                    >
-                        <div className="size-4 shrink-0 rounded border border-primary flex items-center justify-center">
-                            {dialogSelectedModels.size === fetchedModels.length && fetchedModels.length > 0 && (
-                                <Check className="h-3 w-3 text-primary" />
-                            )}
-                        </div>
-                        <span className="text-sm font-medium">{t('modelSelectAllFetched')}</span>
-                    </div>
-                <div className="border-t shrink-0" />
-                {/* 模型列表 - 直接作为 flex 子项，自身滑动 */}
-                <div
-                    className="flex-1 min-h-0 overflow-y-auto space-y-0.5 py-1 dialog-model-scrollbar"
-                    style={{ scrollbarWidth: 'thin', msOverflowStyle: 'auto' }}
+                <Button
+                    type="submit"
+                    disabled={isPending || !hasModels}
+                    className="w-full sm:flex-1 rounded-2xl h-12"
                 >
-                    {fetchedModels.map((model) => (
-                        <div
-                            key={model}
-                            className="flex items-center gap-2 px-1 py-1.5 cursor-pointer hover:bg-accent/5 rounded-lg"
-                            onClick={() => {
-                                const next = new Set(dialogSelectedModels);
-                                if (next.has(model)) next.delete(model);
-                                else next.add(model);
-                                setDialogSelectedModels(next);
-                            }}
-                        >
-                            <div className="size-4 shrink-0 rounded border border-primary flex items-center justify-center">
-                                {dialogSelectedModels.has(model) && (
-                                    <Check className="h-3 w-3 text-primary" />
-                                )}
-                            </div>
-                            <span className="font-mono text-sm">{model}</span>
-                        </div>
-                    ))}
-                    </div>
-                    </>
-                )}
-                <DialogFooter className="shrink-0">
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowModelSelectDialog(false)}
-                        className="rounded-xl"
-                    >
-                        {t('selectModelsCancel')}
-                    </Button>
-                    <Button
-                        type="button"
-                        onClick={handleConfirmModelSelect}
-                        className="rounded-xl"
-                    >
-                        {t('selectModelsConfirm')}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-        </>
+                    {channel
+                        ? (isPending ? t('saving') : t('save'))
+                        : (isPending ? t('submitting') : t('submit'))}
+                </Button>
+            </div>
+        </form>
     );
 }

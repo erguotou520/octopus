@@ -8,7 +8,6 @@ import (
 
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/dlclark/regexp2"
-	"github.com/looplj/axonhub/llm"
 	"github.com/looplj/axonhub/llm/transformer"
 )
 
@@ -19,12 +18,10 @@ func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
 	}
 	fetchModel := make([]string, 0)
 	switch request.Type {
-	case llm.APIFormatAnthropicMessage:
+	case model.ChannelProviderAnthropic:
 		fetchModel, err = fetchAnthropicModels(client, ctx, request)
-	case llm.APIFormatGeminiContents:
+	case model.ChannelProviderGemini:
 		fetchModel, err = fetchGeminiModels(client, ctx, request)
-	case model.ChannelTypeAntigravity:
-		fetchModel, err = fetchAntigravityModels(client, ctx, request)
 	default:
 		fetchModel, err = fetchOpenAIModels(client, ctx, request)
 	}
@@ -53,9 +50,9 @@ func FetchModels(ctx context.Context, request model.Channel) ([]string, error) {
 
 // refer: https://platform.openai.com/docs/api-reference/models/list
 func fetchOpenAIModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
-	baseURL := transformer.NormalizeBaseURL(request.GetBaseUrl(), "v1")
-	if request.Type == model.ChannelTypeDoubao {
-		baseURL = transformer.NormalizeBaseURL(request.GetBaseUrl(), "v3")
+	baseURL := transformer.NormalizeBaseURL(request.BaseURL, "v1")
+	if request.Type == model.ChannelProviderVolcengine {
+		baseURL = transformer.NormalizeBaseURL(request.BaseURL, "v3")
 	}
 	req, _ := http.NewRequestWithContext(
 		ctx,
@@ -63,7 +60,7 @@ func fetchOpenAIModels(client *http.Client, ctx context.Context, request model.C
 		baseURL+"/models",
 		nil,
 	)
-	req.Header.Set("Authorization", "Bearer "+request.GetChannelKey().ChannelKey)
+	req.Header.Set("Authorization", "Bearer "+request.Key)
 	applyCustomHeaders(req, request)
 
 	resp, err := client.Do(req)
@@ -89,10 +86,10 @@ func fetchOpenAIModels(client *http.Client, ctx context.Context, request model.C
 func fetchGeminiModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
 	var allModels []string
 	pageToken := ""
-	baseURL := transformer.NormalizeBaseURL(request.GetBaseUrl(), "v1beta")
+	baseURL := transformer.NormalizeBaseURL(request.BaseURL, "v1beta")
 	// Gemini transformer 会保留用户显式填写的 /v1；这里同样处理，避免把 /v1 拼成 /v1/v1beta。
-	if strings.HasSuffix(strings.TrimRight(request.GetBaseUrl(), "/"), "/v1") {
-		baseURL = transformer.NormalizeBaseURL(request.GetBaseUrl(), "")
+	if strings.HasSuffix(strings.TrimRight(request.BaseURL, "/"), "/v1") {
+		baseURL = transformer.NormalizeBaseURL(request.BaseURL, "")
 	}
 
 	for {
@@ -102,7 +99,7 @@ func fetchGeminiModels(client *http.Client, ctx context.Context, request model.C
 			baseURL+"/models",
 			nil,
 		)
-		req.Header.Set("X-Goog-Api-Key", request.GetChannelKey().ChannelKey)
+		req.Header.Set("X-Goog-Api-Key", request.Key)
 		applyCustomHeaders(req, request)
 		if pageToken != "" {
 			q := req.URL.Query()
@@ -140,9 +137,10 @@ func fetchGeminiModels(client *http.Client, ctx context.Context, request model.C
 
 // refer: https://platform.claude.com/docs
 func fetchAnthropicModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
+
 	var allModels []string
 	var afterID string
-	baseURL := transformer.NormalizeBaseURL(request.GetBaseUrl(), "v1")
+	baseURL := transformer.NormalizeBaseURL(request.BaseURL, "v1")
 	for {
 
 		req, _ := http.NewRequestWithContext(
@@ -151,7 +149,7 @@ func fetchAnthropicModels(client *http.Client, ctx context.Context, request mode
 			baseURL+"/models",
 			nil,
 		)
-		req.Header.Set("X-Api-Key", request.GetChannelKey().ChannelKey)
+		req.Header.Set("X-Api-Key", request.Key)
 		req.Header.Set("Anthropic-Version", "2023-06-01")
 		applyCustomHeaders(req, request)
 		// 设置多页参数
@@ -196,89 +194,4 @@ func applyCustomHeaders(req *http.Request, channel model.Channel) {
 			req.Header.Set(header.HeaderKey, header.HeaderValue)
 		}
 	}
-}
-
-// fetchAntigravityModels retrieves models for Antigravity (Google Gemini Code Assist via OAuth).
-// It calls POST /v1internal:retrieveUserQuota to get quota buckets, each containing a modelId.
-// Key format: "<oauth_token>" or "<oauth_token>|<projectId>"
-func fetchAntigravityModels(client *http.Client, ctx context.Context, request model.Channel) ([]string, error) {
-	key := request.GetChannelKey().ChannelKey
-	keyParts := strings.SplitN(key, "|", 2)
-	token := keyParts[0]
-
-	projectID := ""
-	if len(keyParts) == 2 {
-		projectID = keyParts[1]
-	} else {
-		loadBody := `{"metadata":{"ideType":"IDE_UNSPECIFIED","platform":"PLATFORM_UNSPECIFIED","pluginType":"GEMINI"}}`
-		loadReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-			request.GetBaseUrl()+"/v1internal:loadCodeAssist",
-			strings.NewReader(loadBody))
-		if err != nil {
-			return nil, err
-		}
-		loadReq.Header.Set("Authorization", "Bearer "+token)
-		loadReq.Header.Set("Content-Type", "application/json")
-		loadReq.Header.Set("X-Goog-Api-Client", "gl-node/22.17.0")
-		loadReq.Header.Set("Client-Metadata", "ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI")
-
-		loadResp, err := client.Do(loadReq)
-		if err != nil {
-			return nil, err
-		}
-		defer loadResp.Body.Close()
-
-		var loadPayload struct {
-			CloudAiCompanionProject interface{} `json:"cloudaicompanionProject"`
-		}
-		if err := json.NewDecoder(loadResp.Body).Decode(&loadPayload); err != nil {
-			return nil, err
-		}
-		switch v := loadPayload.CloudAiCompanionProject.(type) {
-		case string:
-			projectID = strings.TrimSpace(v)
-		case map[string]interface{}:
-			if id, ok := v["id"].(string); ok {
-				projectID = strings.TrimSpace(id)
-			}
-		}
-	}
-
-	quotaBody := `{"project":"` + projectID + `"}`
-	quotaReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		request.GetBaseUrl()+"/v1internal:retrieveUserQuota",
-		strings.NewReader(quotaBody))
-	if err != nil {
-		return nil, err
-	}
-	quotaReq.Header.Set("Authorization", "Bearer "+token)
-	quotaReq.Header.Set("Content-Type", "application/json")
-	quotaReq.Header.Set("X-Goog-Api-Client", "gl-node/22.17.0")
-	quotaReq.Header.Set("Client-Metadata", "ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI")
-	applyCustomHeaders(quotaReq, request)
-
-	quotaResp, err := client.Do(quotaReq)
-	if err != nil {
-		return nil, err
-	}
-	defer quotaResp.Body.Close()
-
-	var quotaPayload struct {
-		Buckets []struct {
-			ModelID string `json:"modelId"`
-		} `json:"buckets"`
-	}
-	if err := json.NewDecoder(quotaResp.Body).Decode(&quotaPayload); err != nil {
-		return nil, err
-	}
-
-	seen := make(map[string]bool)
-	var models []string
-	for _, bucket := range quotaPayload.Buckets {
-		if bucket.ModelID != "" && !seen[bucket.ModelID] {
-			seen[bucket.ModelID] = true
-			models = append(models, bucket.ModelID)
-		}
-	}
-	return models, nil
 }

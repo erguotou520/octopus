@@ -3,128 +3,69 @@ package op
 import (
 	"context"
 	"fmt"
-	"sync"
+	"sort"
+	"strings"
 
 	"github.com/bestruirui/octopus/internal/db"
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/utils/cache"
-	"github.com/bestruirui/octopus/internal/utils/log"
-	"github.com/bestruirui/octopus/internal/utils/xstrings"
+	"github.com/charmbracelet/log"
+	"gorm.io/gorm"
 )
 
-var channelCache = cache.New[int, model.Channel](16)
-var channelKeyCache = cache.New[int, model.ChannelKey](16)
-var channelKeyCacheNeedUpdate = make(map[int]struct{})
-var channelKeyCacheNeedUpdateLock sync.Mutex
+var (
+	channelCache      = cache.New[int, model.Channel](16)      // 渠道配置的进程内副本。
+	channelModelCache = cache.New[int, model.ChannelModel](16) // 渠道模型及其统计的进程内副本。
+)
 
-func ChannelList(ctx context.Context) ([]model.Channel, error) {
+// ChannelList 返回缓存中的全部渠道及其模型。
+func ChannelList() []model.Channel {
 	channels := make([]model.Channel, 0, channelCache.Len())
 	for _, channel := range channelCache.GetAll() {
-		channels = append(channels, channel)
+		channels = append(channels, channelSnapshot(channel))
 	}
-	return channels, nil
+	return channels
 }
 
+// ChannelCreate 创建渠道及其模型并写入缓存。
 func ChannelCreate(channel *model.Channel, ctx context.Context) error {
+	if channel == nil {
+		return fmt.Errorf("channel is required")
+	}
+	channel.ID = 0
+	channel.StatsMetrics = model.StatsMetrics{}
+	for i := range channel.Models {
+		channel.Models[i].ID = 0
+		channel.Models[i].ChannelID = 0
+		channel.Models[i].StatsMetrics = model.StatsMetrics{}
+		channel.Models[i].Name = strings.TrimSpace(channel.Models[i].Name)
+		if channel.Models[i].Source == "" {
+			channel.Models[i].Source = model.ChannelModelSourceManual
+		}
+		if channel.Models[i].Name == "" {
+			return fmt.Errorf("channel model name is required")
+		}
+	}
 	if err := db.GetDB().WithContext(ctx).Create(channel).Error; err != nil {
 		return err
 	}
-	channelCache.Set(channel.ID, *channel)
-	for _, k := range channel.Keys {
-		if k.ID != 0 {
-			channelKeyCache.Set(k.ID, k)
-		}
+	cachedChannel := *channel
+	cachedChannel.Models = nil
+	channelCache.Set(channel.ID, cachedChannel)
+	for _, channelModel := range channel.Models {
+		channelModelCache.Set(channelModel.ID, channelModel)
 	}
 	return nil
 }
 
-// ChannelKeyUpdate 仅更新 ChannelKey 的内存缓存（不落库），并标记为需要在 SaveCache 时写入数据库。
-func ChannelKeyUpdate(key model.ChannelKey) error {
-	if key.ID == 0 || key.ChannelID == 0 {
-		return fmt.Errorf("invalid channel key")
-	}
-	ch, ok := channelCache.Get(key.ChannelID)
-	if !ok {
-		return fmt.Errorf("channel not found")
-	}
-	if len(ch.Keys) > 0 {
-		keys := make([]model.ChannelKey, len(ch.Keys))
-		copy(keys, ch.Keys)
-		for i := range keys {
-			if keys[i].ID == key.ID {
-				keys[i] = key
-				break
-			}
-		}
-		ch.Keys = keys
-	}
-	channelCache.Set(key.ChannelID, ch)
-	channelKeyCache.Set(key.ID, key)
-	channelKeyCacheNeedUpdateLock.Lock()
-	channelKeyCacheNeedUpdate[key.ID] = struct{}{}
-	channelKeyCacheNeedUpdateLock.Unlock()
-	return nil
-}
-func ChannelBaseUrlUpdate(channelID int, baseUrl []model.BaseUrl) error {
-	ch, ok := channelCache.Get(channelID)
-	if !ok {
-		return fmt.Errorf("channel not found")
-	}
-	// Copy to decouple callers from internal cache storage.
-	if baseUrl == nil {
-		ch.BaseUrls = nil
-	} else {
-		cp := make([]model.BaseUrl, len(baseUrl))
-		copy(cp, baseUrl)
-		ch.BaseUrls = cp
-	}
-	channelCache.Set(channelID, ch)
-	return nil
-}
-
-// ChannelKeySaveDB 将运行时更新过的 ChannelKey 缓存写入数据库。
-func ChannelKeySaveDB(ctx context.Context) error {
-	channelKeyCacheNeedUpdateLock.Lock()
-	keyIDs := make([]int, 0, len(channelKeyCacheNeedUpdate))
-	for id := range channelKeyCacheNeedUpdate {
-		keyIDs = append(keyIDs, id)
-	}
-	channelKeyCacheNeedUpdate = make(map[int]struct{})
-	channelKeyCacheNeedUpdateLock.Unlock()
-
-	if len(keyIDs) == 0 {
-		return nil
-	}
-
-	dbConn := db.GetDB().WithContext(ctx)
-	for _, id := range keyIDs {
-		k, ok := channelKeyCache.Get(id)
-		if !ok {
-			continue
-		}
-		if err := dbConn.Save(&k).Error; err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
+// ChannelUpdate 更新渠道配置和模型行，并删除不再提供的模型。
 func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (*model.Channel, error) {
-	_, ok := channelCache.Get(req.ID)
-	if !ok {
+	if _, ok := channelCache.Get(req.ID); !ok {
 		return nil, fmt.Errorf("channel not found")
 	}
 
-	tx := db.GetDB().WithContext(ctx).Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
 	var selectFields []string
 	updates := model.Channel{ID: req.ID}
-
 	if req.Name != nil {
 		selectFields = append(selectFields, "name")
 		updates.Name = *req.Name
@@ -137,17 +78,13 @@ func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (*model
 		selectFields = append(selectFields, "enabled")
 		updates.Enabled = *req.Enabled
 	}
-	if req.BaseUrls != nil {
-		selectFields = append(selectFields, "base_urls")
-		updates.BaseUrls = *req.BaseUrls
+	if req.BaseURL != nil {
+		selectFields = append(selectFields, "base_url")
+		updates.BaseURL = *req.BaseURL
 	}
-	if req.Model != nil {
-		selectFields = append(selectFields, "model")
-		updates.Model = *req.Model
-	}
-	if req.CustomModel != nil {
-		selectFields = append(selectFields, "custom_model")
-		updates.CustomModel = *req.CustomModel
+	if req.Key != nil {
+		selectFields = append(selectFields, "key")
+		updates.Key = *req.Key
 	}
 	if req.Proxy != nil {
 		selectFields = append(selectFields, "proxy")
@@ -156,10 +93,6 @@ func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (*model
 	if req.AutoSync != nil {
 		selectFields = append(selectFields, "auto_sync")
 		updates.AutoSync = *req.AutoSync
-	}
-	if req.AutoGroup != nil {
-		selectFields = append(selectFields, "auto_group")
-		updates.AutoGroup = *req.AutoGroup
 	}
 	if req.CustomHeader != nil {
 		selectFields = append(selectFields, "custom_header")
@@ -178,231 +111,244 @@ func ChannelUpdate(req *model.ChannelUpdateRequest, ctx context.Context) (*model
 		updates.MatchRegex = req.MatchRegex
 	}
 
-	// 只有当有字段需要更新时才执行 UPDATE
-	if len(selectFields) > 0 {
-		if err := tx.Model(&model.Channel{}).Where("id = ?", req.ID).Select(selectFields).Updates(&updates).Error; err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("failed to update channel: %w", err)
-		}
-	}
-
-	// 删除 keys
-	if len(req.KeysToDelete) > 0 {
-		if err := tx.Where("id IN ? AND channel_id = ?", req.KeysToDelete, req.ID).Delete(&model.ChannelKey{}).Error; err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("failed to delete channel keys: %w", err)
-		}
-	}
-
-	// 更新 keys（逐条，只更新提供的字段）
-	if len(req.KeysToUpdate) > 0 {
-		for _, ku := range req.KeysToUpdate {
-			updates := map[string]interface{}{}
-			if ku.Enabled != nil {
-				updates["enabled"] = *ku.Enabled
-			}
-			if ku.ChannelKey != nil {
-				updates["channel_key"] = *ku.ChannelKey
-			}
-			if ku.Remark != nil {
-				updates["remark"] = *ku.Remark
-			}
-			if len(updates) == 0 {
-				continue
-			}
-			if err := tx.Model(&model.ChannelKey{}).
-				Where("id = ? AND channel_id = ?", ku.ID, req.ID).
-				Updates(updates).Error; err != nil {
-				tx.Rollback()
-				return nil, fmt.Errorf("failed to update channel key %d: %w", ku.ID, err)
+	var currentModels []model.ChannelModel
+	var channel model.Channel
+	err := db.GetDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if len(selectFields) > 0 {
+			if err := tx.Model(&model.Channel{}).Where("id = ?", req.ID).Select(selectFields).Updates(&updates).Error; err != nil {
+				return fmt.Errorf("failed to update channel: %w", err)
 			}
 		}
-	}
-
-	// 新增 keys
-	if len(req.KeysToAdd) > 0 {
-		newKeys := make([]model.ChannelKey, 0, len(req.KeysToAdd))
-		for _, ka := range req.KeysToAdd {
-			newKeys = append(newKeys, model.ChannelKey{
-				ChannelID:  req.ID,
-				Enabled:    ka.Enabled,
-				ChannelKey: ka.ChannelKey,
-				Remark:     ka.Remark,
-			})
+		if req.Models != nil {
+			if err := syncChannelModels(tx, req.ID, *req.Models); err != nil {
+				return err
+			}
 		}
-		if err := tx.Create(&newKeys).Error; err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("failed to create channel keys: %w", err)
+		if req.Models != nil {
+			if err := tx.Where("channel_id = ?", req.ID).Find(&currentModels).Error; err != nil {
+				return fmt.Errorf("failed to load channel models: %w", err)
+			}
 		}
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	// 刷新缓存并返回最新数据
-	if err := channelRefreshCacheByID(req.ID, ctx); err != nil {
+		if err := tx.First(&channel, req.ID).Error; err != nil {
+			return fmt.Errorf("failed to load updated channel: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	channel, _ := channelCache.Get(req.ID)
-	return &channel, nil
+	channelStatsNeedUpdateLock.Lock()
+	if cachedChannel, ok := channelCache.Get(channel.ID); ok {
+		channel.StatsMetrics = cachedChannel.StatsMetrics
+	}
+	cachedChannel := channel
+	cachedChannel.Models = nil
+	channelCache.Set(channel.ID, cachedChannel)
+	channelStatsNeedUpdateLock.Unlock()
+	if req.Models != nil {
+		currentModelsByID := make(map[int]model.ChannelModel, len(currentModels))
+		for _, currentModel := range currentModels {
+			currentModelsByID[currentModel.ID] = currentModel
+		}
+
+		// 仅增删发生变化的缓存项，存活模型保留尚未落库的统计。
+		channelModelStatsNeedUpdateLock.Lock()
+		for _, cachedModel := range channelModelCache.GetAll() {
+			if cachedModel.ChannelID != req.ID {
+				continue
+			}
+			currentModel, exists := currentModelsByID[cachedModel.ID]
+			if !exists {
+				channelModelCache.Del(cachedModel.ID)
+				delete(channelModelStatsNeedUpdate, cachedModel.ID)
+				continue
+			}
+			cachedModel.Source = currentModel.Source
+			channelModelCache.Set(cachedModel.ID, cachedModel)
+			delete(currentModelsByID, cachedModel.ID)
+		}
+		for _, addedModel := range currentModelsByID {
+			channelModelCache.Set(addedModel.ID, addedModel)
+		}
+		channelModelStatsNeedUpdateLock.Unlock()
+
+		if err := groupRefreshCache(ctx); err != nil {
+			return nil, fmt.Errorf("failed to refresh groups: %w", err)
+		}
+	}
+	snapshot := channelSnapshot(channel)
+	return &snapshot, nil
 }
 
+// ChannelEnabled 更新渠道启用状态。
 func ChannelEnabled(id int, enabled bool, ctx context.Context) error {
-	oldChannel, ok := channelCache.Get(id)
-	if !ok {
+	if _, ok := channelCache.Get(id); !ok {
 		return fmt.Errorf("channel not found")
 	}
 	if err := db.GetDB().WithContext(ctx).Model(&model.Channel{}).Where("id = ?", id).Update("enabled", enabled).Error; err != nil {
 		return err
 	}
-	oldChannel.Enabled = enabled
-	channelCache.Set(id, oldChannel)
+	channelStatsNeedUpdateLock.Lock()
+	if channel, ok := channelCache.Get(id); ok {
+		channel.Enabled = enabled
+		channelCache.Set(id, channel)
+	}
+	channelStatsNeedUpdateLock.Unlock()
 	return nil
 }
 
+// ChannelDel 删除渠道及其模型，关联分组成员由数据库外键级联删除。
 func ChannelDel(id int, ctx context.Context) error {
-	ch, ok := channelCache.Get(id)
-	if !ok {
+	if _, ok := channelCache.Get(id); !ok {
 		return fmt.Errorf("channel not found")
 	}
-
-	// 开启事务
-	tx := db.GetDB().WithContext(ctx).Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
+	var modelIDs []int
+	if err := db.GetDB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.ChannelModel{}).Where("channel_id = ?", id).Pluck("id", &modelIDs).Error; err != nil {
+			return fmt.Errorf("failed to find channel models: %w", err)
 		}
-	}()
-
-	// 获取所有受影响的 GroupID，用于刷新缓存
-	var affectedGroupIDs []int
-	if err := tx.Model(&model.GroupItem{}).
-		Where("channel_id = ?", id).
-		Pluck("group_id", &affectedGroupIDs).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to get affected groups: %w", err)
+		if len(modelIDs) > 0 {
+			if err := clearActiveItemsByChannelModels(tx, modelIDs); err != nil {
+				return err
+			}
+		}
+		if err := tx.Delete(&model.Channel{}, id).Error; err != nil {
+			return fmt.Errorf("failed to delete channel: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
-
-	// 删除所有引用该渠道的 GroupItem
-	if err := tx.Where("channel_id = ?", id).Delete(&model.GroupItem{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete group items: %w", err)
-	}
-
-	// 删除渠道 keys
-	if err := tx.Where("channel_id = ?", id).Delete(&model.ChannelKey{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete channel keys: %w", err)
-	}
-
-	// 删除统计数据
-	if err := tx.Where("channel_id = ?", id).Delete(&model.StatsChannel{}).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete channel stats: %w", err)
-	}
-
-	// 删除渠道
-	if err := tx.Delete(&model.Channel{}, id).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to delete channel: %w", err)
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	// 删除缓存
+	channelStatsNeedUpdateLock.Lock()
 	channelCache.Del(id)
-	for _, k := range ch.Keys {
-		if k.ID != 0 {
-			channelKeyCache.Del(k.ID)
-		}
+	delete(channelStatsNeedUpdate, id)
+	channelStatsNeedUpdateLock.Unlock()
+	channelModelStatsNeedUpdateLock.Lock()
+	channelModelCache.Del(modelIDs...)
+	for _, modelID := range modelIDs {
+		delete(channelModelStatsNeedUpdate, modelID)
 	}
-	StatsChannelDel(id)
-
-	// 刷新受影响的分组缓存
-	for _, groupID := range affectedGroupIDs {
-		if err := groupRefreshCacheByID(groupID, ctx); err != nil {
-			log.Warnf("failed to refresh group cache for group %d: %v", groupID, err)
-		}
+	channelModelStatsNeedUpdateLock.Unlock()
+	if err := groupRefreshCache(ctx); err != nil {
+		return fmt.Errorf("failed to refresh groups: %w", err)
 	}
-
 	return nil
 }
 
-func ChannelLLMList(ctx context.Context) ([]model.LLMChannel, error) {
-	models := []model.LLMChannel{}
-	for _, channel := range channelCache.GetAll() {
-		modelNames := xstrings.SplitTrimCompact(",", channel.Model, channel.CustomModel)
-		for _, modelName := range modelNames {
-			if modelName == "" {
-				continue
-			}
-			models = append(models, model.LLMChannel{
-				Name:        modelName,
-				Enabled:     channel.Enabled,
-				ChannelID:   channel.ID,
-				ChannelName: channel.Name,
-			})
-		}
-	}
-	return models, nil
-}
-
-func ChannelGet(id int, ctx context.Context) (*model.Channel, error) {
+// ChannelGet 返回指定渠道的缓存副本及其模型。
+func ChannelGet(id int) (model.Channel, error) {
 	channel, ok := channelCache.Get(id)
 	if !ok {
-		return nil, fmt.Errorf("channel not found")
+		return model.Channel{}, fmt.Errorf("channel not found")
 	}
-	return &channel, nil
+	return channelSnapshot(channel), nil
 }
 
+// ChannelModelGet 返回指定渠道模型的缓存副本。
+func ChannelModelGet(id int) (model.ChannelModel, error) {
+	channelModel, ok := channelModelCache.Get(id)
+	if !ok {
+		return model.ChannelModel{}, fmt.Errorf("channel model not found")
+	}
+	return channelModel, nil
+}
+
+// channelRefreshCache 从数据库刷新渠道和渠道模型缓存。
 func channelRefreshCache(ctx context.Context) error {
 	channels := []model.Channel{}
-	if err := db.GetDB().WithContext(ctx).
-		Preload("Keys").
-		Preload("Stats").
-		Find(&channels).Error; err != nil {
+	if err := db.GetDB().WithContext(ctx).Find(&channels).Error; err != nil {
 		log.Warnf("failed to get channels: %v", err)
 		return err
 	}
-	channelKeyCache.Clear()
-	channelKeyCacheNeedUpdateLock.Lock()
-	channelKeyCacheNeedUpdate = make(map[int]struct{})
-	channelKeyCacheNeedUpdateLock.Unlock()
+	channelModels := []model.ChannelModel{}
+	if err := db.GetDB().WithContext(ctx).Find(&channelModels).Error; err != nil {
+		return err
+	}
+	channelCache.Clear()
+	channelModelCache.Clear()
 	for _, channel := range channels {
+		channel.Models = nil
 		channelCache.Set(channel.ID, channel)
-		for _, k := range channel.Keys {
-			if k.ID != 0 {
-				channelKeyCache.Set(k.ID, k)
-			}
-		}
+	}
+	for _, channelModel := range channelModels {
+		channelModelCache.Set(channelModel.ID, channelModel)
 	}
 	return nil
 }
 
-func channelRefreshCacheByID(id int, ctx context.Context) error {
-	if old, ok := channelCache.Get(id); ok {
-		for _, k := range old.Keys {
-			if k.ID != 0 {
-				channelKeyCache.Del(k.ID)
-			}
+// channelSnapshot 将渠道缓存与当前渠道模型合并为读取副本。
+func channelSnapshot(channel model.Channel) model.Channel {
+	models := make([]model.ChannelModel, 0)
+	for _, channelModel := range channelModelCache.GetAll() {
+		if channelModel.ChannelID == channel.ID {
+			models = append(models, channelModel)
 		}
 	}
-	var channel model.Channel
-	if err := db.GetDB().WithContext(ctx).
-		Preload("Keys").
-		Preload("Stats").
-		First(&channel, id).Error; err != nil {
+	sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
+	channel.Models = models
+	return channel
+}
+
+// syncChannelModels 按提交的模型集合新增、删除渠道模型，并更新变化的来源。
+func syncChannelModels(tx *gorm.DB, channelID int, requested []model.ChannelModel) error {
+	var existing []model.ChannelModel
+	if err := tx.Where("channel_id = ?", channelID).Find(&existing).Error; err != nil {
+		return fmt.Errorf("failed to load channel models: %w", err)
+	}
+	existingByName := make(map[string]model.ChannelModel, len(existing))
+	for _, channelModel := range existing {
+		existingByName[channelModel.Name] = channelModel
+	}
+	for _, requestedModel := range requested {
+		name := strings.TrimSpace(requestedModel.Name)
+		if name == "" {
+			return fmt.Errorf("channel model name is required")
+		}
+		source := requestedModel.Source
+		if source == "" {
+			source = model.ChannelModelSourceManual
+		}
+		if current, ok := existingByName[name]; ok {
+			if current.Source != source {
+				if err := tx.Model(&model.ChannelModel{}).Where("id = ?", current.ID).Update("source", source).Error; err != nil {
+					return fmt.Errorf("failed to update channel model: %w", err)
+				}
+			}
+			delete(existingByName, name)
+			continue
+		}
+		if err := tx.Create(&model.ChannelModel{ChannelID: channelID, Name: name, Source: source}).Error; err != nil {
+			return fmt.Errorf("failed to create channel model: %w", err)
+		}
+	}
+	deletedModelIDs := make([]int, 0, len(existingByName))
+	for _, channelModel := range existingByName {
+		deletedModelIDs = append(deletedModelIDs, channelModel.ID)
+	}
+	if len(deletedModelIDs) == 0 {
+		return nil
+	}
+	if err := clearActiveItemsByChannelModels(tx, deletedModelIDs); err != nil {
 		return err
 	}
-	channelCache.Set(channel.ID, channel)
-	for _, k := range channel.Keys {
-		if k.ID != 0 {
-			channelKeyCache.Set(k.ID, k)
-		}
+	if err := tx.Delete(&model.ChannelModel{}, deletedModelIDs).Error; err != nil {
+		return fmt.Errorf("failed to delete channel models: %w", err)
+	}
+	return nil
+}
+
+// clearActiveItemsByChannelModels 清理引用待删除渠道模型的分组当前项。
+func clearActiveItemsByChannelModels(tx *gorm.DB, channelModelIDs []int) error {
+	if len(channelModelIDs) == 0 {
+		return nil
+	}
+	itemIDs := tx.Model(&model.GroupItem{}).
+		Select("id").Where("channel_model_id IN ?", channelModelIDs)
+	if err := tx.Model(&model.Group{}).
+		Where("active_item_id IN (?)", itemIDs).
+		Update("active_item_id", 0).Error; err != nil {
+		return fmt.Errorf("failed to clear active items: %w", err)
 	}
 	return nil
 }

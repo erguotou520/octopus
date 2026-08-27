@@ -7,16 +7,14 @@ import (
 	"github.com/bestruirui/octopus/internal/model"
 	"github.com/bestruirui/octopus/internal/op"
 	"github.com/bestruirui/octopus/internal/price"
-	"github.com/bestruirui/octopus/internal/utils/log"
+	"github.com/charmbracelet/log"
 )
 
 const (
 	TaskPriceUpdate  = "price_update"
 	TaskStatsSave    = "stats_save"
-	TaskRelayLogSave = "relay_log_save"
 	TaskSyncLLM      = "sync_llm"
 	TaskCleanLLM     = "clean_llm"
-	TaskBaseUrlDelay = "base_url_delay"
 )
 
 func Init() {
@@ -33,9 +31,6 @@ func Init() {
 		}
 	})
 
-	// 注册基础URL延迟任务
-	Register(TaskBaseUrlDelay, 1*time.Hour, true, ChannelBaseUrlDelayTask)
-
 	// 注册LLM同步任务
 	syncLLMIntervalHours, err := op.SettingGetInt(model.SettingKeySyncLLMInterval)
 	if err != nil {
@@ -43,7 +38,11 @@ func Init() {
 		return
 	}
 	syncLLMInterval := time.Duration(syncLLMIntervalHours) * time.Hour
-	Register(string(model.SettingKeySyncLLMInterval), syncLLMInterval, true, SyncModelsTask)
+	Register(string(model.SettingKeySyncLLMInterval), syncLLMInterval, true, func() {
+		if err := SyncModelsTask(); err != nil {
+			log.Warnf("failed to sync models: %v", err)
+		}
+	})
 
 	// 注册统计保存任务
 	statsSaveIntervalMinutes, err := op.SettingGetInt(model.SettingKeyStatsSaveInterval)
@@ -53,10 +52,4 @@ func Init() {
 	}
 	statsSaveInterval := time.Duration(statsSaveIntervalMinutes) * time.Minute
 	Register(TaskStatsSave, statsSaveInterval, false, op.StatsSaveDBTask)
-	// 注册中继日志保存任务
-	Register(TaskRelayLogSave, 10*time.Minute, false, func() {
-		if err := op.RelayLogSaveDBTask(context.Background()); err != nil {
-			log.Warnf("relay log save db task failed: %v", err)
-		}
-	})
 }

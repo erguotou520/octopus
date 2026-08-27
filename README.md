@@ -4,7 +4,7 @@
 
 ### Octopus
 
-**A Simple, Beautiful, and Elegant LLM API Aggregation & Load Balancing Service for Individuals**
+**A Simple, Beautiful, and Elegant LLM API Aggregation Service for Individuals**
 
  English | [简体中文](README_zh.md)
 
@@ -14,14 +14,15 @@
 ## ✨ Features
 
 - 🔀 **Multi-Channel Aggregation** - Connect multiple LLM provider channels with unified management
-- 🔑 **Multi-Key Support** - Support multiple API keys for a single channel
-- ⚡ **Smart Selection** - Multiple endpoints per channel, smart selection of the endpoint with the shortest delay
-- ⚖️ **Load Balancing** - Automatic request distribution for stable and efficient service
 - 🔄 **Protocol Conversion** - Seamless conversion between OpenAI Chat / OpenAI Responses / Anthropic API formats
 - 💰 **Price Sync** - Automatic model pricing updates
 - 🔃 **Model Sync** - Automatic synchronization of available model lists with channels
+- 🛡️ **Automatic Failover** - Automatically switches to an available channel when an upstream channel fails
+- 🔍 **Real-Time End-to-End Request Visualization** - Watch the complete request path in the frontend from the moment the client sends it
+- 🚧 **Upstream Error Shielding** - Intercept all upstream errors to keep agent tasks running without interruption
 - 📊 **Analytics** - Comprehensive request statistics, token consumption, and cost tracking
 - 🎨 **Elegant UI** - Clean and beautiful web management panel
+- 📦 **Lightweight Single-Binary Deployment** - Run as a single binary with no external runtime dependencies
 - 🗄️ **Multi-Database Support** - Support for SQLite, MySQL, PostgreSQL
 
 ### ✨ Extra Features (vs upstream)
@@ -48,7 +49,10 @@ docker run -d --name octopus -v /path/to/data:/app/data -p 8080:8080 erguotou520
 Or use docker compose:
 
 ```bash
+
 wget https://raw.githubusercontent.com/erguotou520/octopus/refs/heads/dev/docker-compose.yml
+
+
 docker compose up -d
 ```
 
@@ -73,9 +77,7 @@ Download the binary for your platform from [Releases](https://github.com/erguoto
 git clone https://github.com/erguotou520/octopus.git
 cd octopus
 # Build frontend
-cd web && pnpm install && pnpm run build && cd ..
-# Move frontend assets to static directory
-mv web/out static/
+cd web && pnpm install && pnpm run build
 # Start the backend service
 go run main.go start 
 ```
@@ -85,11 +87,11 @@ go run main.go start
 **Development Mode**
 
 ```bash
-cd web && pnpm install && NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8080" pnpm run dev
+cd web && pnpm install && pnpm run dev
 ## Open a new terminal, start the backend service
 go run main.go start
 ## Access the frontend at
-http://localhost:3000
+http://localhost:5173
 ```
 
 ### 🔐 Default Credentials
@@ -179,11 +181,6 @@ All configuration options can be overridden via environment variables using the 
 | `OCTOPUS_DATABASE_PATH` | `database.path` |
 | `OCTOPUS_LOG_LEVEL` | `log.level` |
 | `OCTOPUS_GITHUB_PAT` | For rate limiting when getting the latest version (optional) |
-| `OCTOPUS_RELAY_MAX_SSE_EVENT_SIZE` | Maximum SSE event size (optional) |
-| `OCTOPUS_IMAGES_BODY_MEMORY_THRESHOLD_MB` | Images request body in-memory threshold. If exceeded, it will be spooled to a temporary file (optional, default 16) |
-| `OCTOPUS_IMAGES_BODY_MAX_MB` | Images request body maximum size. Requests above this limit are rejected (optional, default 256) |
-| `OCTOPUS_IMAGES_BODY_TMP_DIR` | Images request body temporary directory (optional, default `./cache`) |
-| `OCTOPUS_IMAGES_BODY_TMP_CLEANUP_HOURS` | Startup cleanup threshold for temporary files (optional, default 24) |
 
 ### OAuth Environment Overrides (Optional)
 
@@ -289,17 +286,16 @@ Channels are the basic configuration units for connecting to LLM providers.
 
 **Base URL Guide:**
 
-The program automatically appends API paths based on channel type. You only need to provide the base URL:
+The program automatically appends the API version and endpoint path based on the channel type. You only need to provide the service root URL:
 
 | Channel Type | Auto-appended Path | Base URL | Full Request URL Example |
 |--------------|-------------------|----------|--------------------------|
-| OpenAI Chat | `/chat/completions` | `https://api.openai.com/v1` | `https://api.openai.com/v1/chat/completions` |
-| OpenAI Responses | `/responses` | `https://api.openai.com/v1` | `https://api.openai.com/v1/responses` |
-| OpenAI Images | `/images/generations`, `/images/edits`, `/images/variations` | `https://api.openai.com/v1` | `https://api.openai.com/v1/images/generations` |
-| Anthropic | `/messages` | `https://api.anthropic.com/v1` | `https://api.anthropic.com/v1/messages` |
-| Gemini | `/models/:model:generateContent` | `https://generativelanguage.googleapis.com/v1beta` | `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` |
+| OpenAI Chat | `/v1/chat/completions` | `https://api.openai.com` | `https://api.openai.com/v1/chat/completions` |
+| OpenAI Responses | `/v1/responses` | `https://api.openai.com` | `https://api.openai.com/v1/responses` |
+| Anthropic | `/v1/messages` | `https://api.anthropic.com` | `https://api.anthropic.com/v1/messages` |
+| Gemini | `/v1beta/models/:model:generateContent` | `https://generativelanguage.googleapis.com` | `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` |
 
-> 💡 **Tip**: No need to include specific API endpoint paths in the Base URL - the program handles this automatically.
+> 💡 **Tip**: The Base URL does not need to include `/v1`, `/v1beta`, or a specific API endpoint path - the program handles them automatically.
 
 ---
 
@@ -311,15 +307,6 @@ Groups aggregate multiple channels into a unified external model name.
 
 - **Group name** is the model name exposed by the program
 - When calling the API, set the `model` parameter to the group name
-
-**Load Balancing Modes:**
-
-| Mode | Description |
-|------|-------------|
-| 🔄 **Round Robin** | Cycles through channels sequentially for each request |
-| 🎲 **Random** | Randomly selects an available channel for each request |
-| 🛡️ **Failover** | Prioritizes high-priority channels, switches to lower priority only on failure |
-| ⚖️ **Weighted** | Distributes requests based on configured channel weights |
 
 > 💡 **Example**: Create a group named `gpt-4o`, add multiple providers' GPT-4o channels to it, then access all channels via a unified `model: gpt-4o`.
 
@@ -407,20 +394,25 @@ Edit `~/.claude/settings.json`
 Edit `~/.codex/config.toml`
 
 ```toml
-model = "octopus-codex" # Use the correct group name
-
+model = "gpt-5.6-sol"
+model_reasoning_effort = "xhigh"
 model_provider = "octopus"
+preferred_auth_method = "apikey"
 
 [model_providers.octopus]
-name = "octopus"
 base_url = "http://127.0.0.1:8080/v1"
+name = "octopus"
+supports_websockets = false
+requires_openai_auth = true
+wire_api = "responses"
+experimental_bearer_token = "sk-octopus-"
 ```
 
 Edit `~/.codex/auth.json`
 
 ```json
 {
-  "OPENAI_API_KEY": "sk-octopus-P48ROljwJmWBYVARjwQM8Nkiezlg7WOrXXOWDYY8TI5p9Mzg"
+  "OPENAI_API_KEY": ""
 }
 ```
 
@@ -439,3 +431,4 @@ For Claude Code, you can also configure separate model mappings for Haiku / Sonn
 - 🙏 [looplj/axonhub](https://github.com/looplj/axonhub) - The LLM API adaptation module in this project is directly derived from this repository
 - 📊 [sst/models.dev](https://github.com/sst/models.dev) - AI model database providing model pricing data
 - 🇨🇳 [AtomGit](https://atomgit.com/bestruirui/octopus) - China-based code hosting
+- 💬 [Linux.do](https://linux.do/)

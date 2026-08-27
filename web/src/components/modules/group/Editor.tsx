@@ -1,33 +1,52 @@
-'use client';
-
 import { useCallback, useMemo, useState, type FormEvent } from 'react';
-import { Check, ChevronDownIcon, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { Check, ChevronDownIcon, HelpCircle, Plus, Search, Sparkles, Trash2 } from 'lucide-react';
+import { useTranslations } from 'use-intl';
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
-import { useModelChannelList, type LLMChannel } from '@/api/endpoints/model';
+import { useChannelList } from '@/api/channel';
 import { Button } from '@/components/ui/button';
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem } from '@/components/ui/accordion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { getModelIcon } from '@/lib/model-icons';
-import type { GroupMode } from '@/api/endpoints/group';
+import type { GroupMode, GroupRelayConfig } from '@/api/group';
 import type { SelectedMember } from './ItemList';
 import { MemberList } from './ItemList';
-import { matchesGroupName, memberKey, normalizeKey, MODE_LABELS } from './utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/animate-ui/components/animate/tooltip';
-import { HelpCircle } from 'lucide-react';
-
-
+import { matchesGroupName, memberKey, normalizeKey } from './utils';
 
 export type GroupEditorValues = {
     name: string;
-    match_regex: string;
     mode: GroupMode;
-    first_token_time_out: number;
-    session_keep_time: number;
+    relay_config: GroupRelayConfig;
     members: SelectedMember[];
 };
+
+// defaultRelayConfig 提供创建分组时的前端初始配置。
+const defaultRelayConfig: GroupRelayConfig = {
+    member_max_attempts: 2,
+    member_retry_interval_seconds: 1,
+    member_non_stream_response_timeout_seconds: 120,
+    member_stream_first_event_timeout_seconds: 30,
+    member_cooldown_seconds: 60,
+    member_affinity_seconds: 0,
+};
+
+// FieldHelp 渲染配置字段的简短帮助提示。
+function FieldHelp({ text }: { text: string }) {
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <HelpCircle className="size-4 cursor-help text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={10} align="center">
+                {text}
+            </TooltipContent>
+        </Tooltip>
+    );
+}
 
 function ModelPickerSection({
     modelChannels,
@@ -36,9 +55,9 @@ function ModelPickerSection({
     onAutoAdd,
     autoAddDisabled,
 }: {
-    modelChannels: LLMChannel[];
+    modelChannels: SelectedMember[];
     selectedMembers: SelectedMember[];
-    onAdd: (channel: LLMChannel) => void;
+    onAdd: (channel: SelectedMember) => void;
     onAutoAdd: () => void;
     autoAddDisabled: boolean;
 }) {
@@ -49,7 +68,7 @@ function ModelPickerSection({
     const normalizedSearch = searchKeyword.trim().toLowerCase();
 
     const channels = useMemo(() => {
-        const byId = new Map<number, { id: number; name: string; models: LLMChannel[] }>();
+        const byId = new Map<number, { id: number; name: string; models: SelectedMember[] }>();
         modelChannels.forEach((mc) => {
             const existing = byId.get(mc.channel_id);
             if (existing) existing.models.push(mc);
@@ -134,7 +153,7 @@ function ModelPickerSection({
                                     <div className="flex flex-col gap-1.5">
                                         {channel.models.map((m) => {
                                             const isSelected = selectedKeys.has(memberKey(m));
-                                            const { Avatar } = getModelIcon(m.name);
+                                            const { Icon, className: iconClassName } = getModelIcon(m.name);
                                             return (
                                                 <button
                                                     key={memberKey(m)}
@@ -147,7 +166,7 @@ function ModelPickerSection({
                                                     )}
                                                 >
                                                     <span className="flex items-center gap-2 min-w-0">
-                                                        <Avatar size={16} />
+                                                        <Icon aria-hidden="true" className={iconClassName} width={16} height={16} />
                                                         <span className="text-sm font-medium truncate">{m.name}</span>
                                                     </span>
 
@@ -176,17 +195,13 @@ function SortSection({
     members,
     onReorder,
     onRemove,
-    onWeightChange,
     removingIds,
-    showWeight,
     onClear,
 }: {
     members: SelectedMember[];
     onReorder: (members: SelectedMember[]) => void;
     onRemove: (id: string) => void;
-    onWeightChange: (id: string, weight: number) => void;
     removingIds: Set<string>;
-    showWeight: boolean;
     onClear: () => void;
 }) {
     const t = useTranslations('group');
@@ -224,9 +239,7 @@ function SortSection({
                     members={members}
                     onReorder={onReorder}
                     onRemove={onRemove}
-                    onWeightChange={onWeightChange}
                     removingIds={removingIds}
-                    showWeight={showWeight}
                     showConfirmDelete={false}
                 />
             </div>
@@ -242,7 +255,12 @@ export function GroupEditor({
     onSubmit,
     onCancel,
 }: {
-    initial?: Partial<GroupEditorValues>;
+    initial?: {
+        name?: string;
+        mode?: GroupMode;
+        relay_config?: Partial<GroupRelayConfig>;
+        members?: SelectedMember[];
+    };
     submitText: string;
     submittingText: string;
     isSubmitting: boolean;
@@ -250,57 +268,47 @@ export function GroupEditor({
     onCancel?: () => void;
 }) {
     const t = useTranslations('group');
-    const { data: modelChannels = [] } = useModelChannelList();
+    const { data: channelsData = [] } = useChannelList();
+    const modelChannels = useMemo<SelectedMember[]>(() => channelsData.flatMap(({ raw: channel }) =>
+        channel.models.map((channelModel) => ({
+            id: String(channelModel.id),
+            channel_model_id: channelModel.id,
+            name: channelModel.name,
+            enabled: channel.enabled,
+            channel_id: channelModel.channel_id,
+            channel_name: channel.name,
+        }))
+    ), [channelsData]);
 
     const [groupName, setGroupName] = useState(initial?.name ?? '');
-    const [matchRegex, setMatchRegex] = useState(initial?.match_regex ?? '');
-    const [mode, setMode] = useState<GroupMode>((initial?.mode ?? 1) as GroupMode);
-    const [firstTokenTimeOut, setFirstTokenTimeOut] = useState<number>(initial?.first_token_time_out ?? 0);
-    const [sessionKeepTime, setSessionKeepTime] = useState<number>(initial?.session_keep_time ?? 0);
+    const [mode, setMode] = useState<GroupMode>(initial?.mode ?? 'manual');
+    const [relayConfig, setRelayConfig] = useState<GroupRelayConfig>(() => ({
+        ...defaultRelayConfig,
+        ...initial?.relay_config,
+    }));
     const [selectedMembers, setSelectedMembers] = useState<SelectedMember[]>(initial?.members ?? []);
     const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
     const groupKey = normalizeKey(groupName);
-    const regexKey = matchRegex.trim();
-    const invalidGroupName = /[:：\s]/.test(groupName.trim());
 
-    const { matchedModelChannels, regexError } = useMemo(() => {
-        const parseRegex = (input: string): RegExp => {
-            const inlineMatch = input.match(/^\(\?([ism]+)\)(.+)$/);
-            if (inlineMatch) {
-                const flagMap: Record<string, string> = { i: 'i', s: 's', m: 'm' };
-                const flags = inlineMatch[1].split('').map(f => flagMap[f] || '').join('');
-                return new RegExp(inlineMatch[2], flags);
-            }
+    const matchedModelChannels = useMemo(() => {
+        if (!groupKey) return [];
+        return modelChannels.filter((mc) => matchesGroupName(mc.name, groupKey));
+    }, [groupKey, modelChannels]);
 
-            return new RegExp(input);
-        };
-
-        if (regexKey) {
-            try {
-                const re = parseRegex(regexKey);
-                return { matchedModelChannels: modelChannels.filter((mc) => re.test(mc.name)), regexError: '' };
-            } catch (e) {
-                return { matchedModelChannels: [], regexError: (e as Error)?.message ?? 'Invalid regex' };
-            }
-        }
-        if (!groupKey) return { matchedModelChannels: [], regexError: '' };
-        return { matchedModelChannels: modelChannels.filter((mc) => matchesGroupName(mc.name, groupKey)), regexError: '' };
-    }, [groupKey, regexKey, modelChannels]);
-
-    const handleAddMember = useCallback((channel: LLMChannel) => {
+    const handleAddMember = useCallback((channel: SelectedMember) => {
         const key = memberKey(channel);
         setSelectedMembers((prev) => {
             if (prev.some((m) => m.id === key)) return prev;
-            return [...prev, { ...channel, id: key, weight: 1 }];
+            return [...prev, { ...channel, id: key }];
         });
     }, []);
 
     const autoAddDisabled = useMemo(() => {
-        if ((!regexKey && !groupKey) || regexError || matchedModelChannels.length === 0) return true;
+        if (!groupKey || matchedModelChannels.length === 0) return true;
         const existing = new Set(selectedMembers.map((m) => m.id));
         return matchedModelChannels.every((mc) => existing.has(memberKey(mc)));
-    }, [groupKey, regexKey, regexError, matchedModelChannels, selectedMembers]);
+    }, [groupKey, matchedModelChannels, selectedMembers]);
 
     const handleAutoAdd = useCallback(() => {
         if (matchedModelChannels.length === 0) return;
@@ -308,14 +316,10 @@ export function GroupEditor({
             const existing = new Set(prev.map((m) => m.id));
             const toAdd = matchedModelChannels
                 .filter((mc) => !existing.has(memberKey(mc)))
-                .map((mc) => ({ ...mc, id: memberKey(mc), weight: 1 }));
+                .map((mc) => ({ ...mc, id: memberKey(mc) }));
             return toAdd.length ? [...prev, ...toAdd] : prev;
         });
     }, [matchedModelChannels]);
-
-    const handleWeightChange = useCallback((id: string, weight: number) => {
-        setSelectedMembers((prev) => prev.map((m) => m.id === id ? { ...m, weight } : m));
-    }, []);
 
     const handleRemoveMember = useCallback((id: string) => {
         setRemovingIds((prev) => new Set(prev).add(id));
@@ -330,17 +334,15 @@ export function GroupEditor({
         setRemovingIds(new Set());
     }, []);
 
-    const isValid = groupKey.length > 0 && selectedMembers.length > 0 && !regexError && !invalidGroupName;
+    const isValid = groupKey.length > 0 && selectedMembers.length > 0;
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!isValid) return;
         onSubmit({
             name: groupName,
-            match_regex: regexKey,
             mode,
-            first_token_time_out: firstTokenTimeOut,
-            session_keep_time: sessionKeepTime,
+            relay_config: relayConfig,
             members: selectedMembers,
         });
     };
@@ -348,9 +350,9 @@ export function GroupEditor({
 
     return (
         <form onSubmit={handleSubmit} className="flex flex-col h-full min-h-0 ">
-            <div className="flex-1 min-h-0 overflow-hidden pr-1">
+            <div className="flex-1 min-h-0 overflow-hidden px-1">
                 <FieldGroup className="gap-4 flex flex-col min-h-0 h-full">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Field>
                             <FieldLabel htmlFor="group-name">{t('form.name')}</FieldLabel>
                             <Input
@@ -359,132 +361,171 @@ export function GroupEditor({
                                 onChange={(e) => setGroupName(e.target.value)}
                                 className="rounded-xl"
                             />
-                            {invalidGroupName && (
-                                <p className="text-xs text-destructive mt-1">{t('form.nameRule')}</p>
-                            )}
                         </Field>
                         <Field>
-                            <FieldLabel htmlFor="group-match-regex">{t('form.matchRegex')}</FieldLabel>
-                            <Input
-                                id="group-match-regex"
-                                value={matchRegex}
-                                onChange={(e) => setMatchRegex(e.target.value)}
-                                className="rounded-xl"
-                                placeholder={t('form.matchRegexPlaceholder')}
-                            />
-                            {regexError && (
-                                <p className="mt-1 text-xs text-destructive">
-                                    {t('form.matchRegexInvalid')}: {regexError}
-                                </p>
-                            )}
-                        </Field>
-
-                        <Field>
-                            <FieldLabel htmlFor="group-first-token-time-out">
-                                {t('form.firstTokenTimeOut')}
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <HelpCircle className="size-4 text-muted-foreground cursor-help" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            {t('form.firstTokenTimeOutHint')}
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                            <FieldLabel htmlFor="group-mode">
+                                {t('form.mode')}
+                                <FieldHelp text={t('form.modeHint')} />
                             </FieldLabel>
-                            <Input
-                                id="group-first-token-time-out"
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                step={1}
-                                value={String(firstTokenTimeOut)}
-                                onChange={(e) => {
-                                    const raw = e.target.value;
-                                    if (raw.trim() === '') {
-                                        setFirstTokenTimeOut(0);
-                                        return;
-                                    }
-                                    const n = Number.parseInt(raw, 10);
-                                    setFirstTokenTimeOut(Number.isFinite(n) && n > 0 ? n : 0);
-                                }}
-                                className="rounded-xl"
-                            />
-                        </Field>
-
-                        <Field>
-                            <FieldLabel htmlFor="group-session-keep-time">
-                                {t('form.sessionKeepTime')}
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <HelpCircle className="size-4 text-muted-foreground cursor-help" />
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            {t('form.sessionKeepTimeHint')}
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-                            </FieldLabel>
-                            <Input
-                                id="group-session-keep-time"
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                step={1}
-                                value={String(sessionKeepTime)}
-                                onChange={(e) => {
-                                    const raw = e.target.value;
-                                    if (raw.trim() === '') {
-                                        setSessionKeepTime(0);
-                                        return;
-                                    }
-                                    const n = Number.parseInt(raw, 10);
-                                    setSessionKeepTime(Number.isFinite(n) && n > 0 ? n : 0);
-                                }}
-                                className="rounded-xl"
-                            />
-                        </Field>
-                    </div>
-
-                    {/* Mode */}
-                    <div className="flex gap-1">
-                        {([1, 2, 3, 4] as const).map((m) => (
-                            <button
-                                key={m}
-                                type="button"
-                                onClick={() => setMode(m)}
-                                className={cn(
-                                    'flex-1 py-1 text-xs rounded-lg transition-colors',
-                                    mode === m ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
-                                )}
+                            <Select
+                                value={mode}
+                                onValueChange={(value) => setMode(value as GroupMode)}
                             >
-                                {t(`mode.${MODE_LABELS[m]}`)}
-                            </button>
-                        ))}
+                                <SelectTrigger id="group-mode" className="w-full rounded-xl">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="manual">{t('form.manual')}</SelectItem>
+                                    <SelectItem value="failover">{t('form.failover')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </Field>
                     </div>
 
-                    <div className="flex-1 min-h-0">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full min-h-0">
-                            <ModelPickerSection
-                                modelChannels={modelChannels}
-                                selectedMembers={selectedMembers}
-                                onAdd={handleAddMember}
-                                onAutoAdd={handleAutoAdd}
-                                autoAddDisabled={autoAddDisabled}
-                            />
-                            <SortSection
-                                members={selectedMembers}
-                                onReorder={setSelectedMembers}
-                                onRemove={handleRemoveMember}
-                                onWeightChange={handleWeightChange}
-                                removingIds={removingIds}
-                                showWeight={mode === 4}
-                                onClear={handleClearMembers}
-                            />
-                        </div>
-                    </div>
+                    <Tabs defaultValue="members" className="flex flex-1 min-h-0">
+                        <TabsList className="grid w-full shrink-0 grid-cols-2">
+                            <TabsTrigger value="members">{t('form.members')}</TabsTrigger>
+                            <TabsTrigger value="relay">{t('form.relay')}</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="members" className="min-h-0 overflow-hidden">
+                            <div className="grid h-full min-h-0 grid-cols-1 gap-4 md:grid-cols-2">
+                                <ModelPickerSection
+                                    modelChannels={modelChannels}
+                                    selectedMembers={selectedMembers}
+                                    onAdd={handleAddMember}
+                                    onAutoAdd={handleAutoAdd}
+                                    autoAddDisabled={autoAddDisabled}
+                                />
+                                <SortSection
+                                    members={selectedMembers}
+                                    onReorder={setSelectedMembers}
+                                    onRemove={handleRemoveMember}
+                                    removingIds={removingIds}
+                                    onClear={handleClearMembers}
+                                />
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="relay" className="min-h-0 overflow-y-auto px-1">
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <Field>
+                                    <FieldLabel htmlFor="group-retry-count">
+                                        {t('form.retryCount')}
+                                        <FieldHelp text={t('form.retryCountHint')} />
+                                    </FieldLabel>
+                                    <Input
+                                        id="group-retry-count"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        step={1}
+                                        value={String(relayConfig.member_max_attempts)}
+                                        onChange={(event) => {
+                                            const value = Number.parseInt(event.target.value, 10);
+                                            setRelayConfig((prev) => ({ ...prev, member_max_attempts: Number.isFinite(value) && value >= 1 ? value : 1 }));
+                                        }}
+                                        className="rounded-xl"
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="group-retry-interval">
+                                        {t('form.retryInterval')}
+                                        <FieldHelp text={t('form.retryIntervalHint')} />
+                                    </FieldLabel>
+                                    <Input
+                                        id="group-retry-interval"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={1}
+                                        step={1}
+                                        value={String(relayConfig.member_retry_interval_seconds)}
+                                        onChange={(event) => {
+                                            const value = Number.parseInt(event.target.value, 10);
+                                            setRelayConfig((prev) => ({ ...prev, member_retry_interval_seconds: Number.isFinite(value) && value >= 1 ? value : 1 }));
+                                        }}
+                                        className="rounded-xl"
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="group-non-stream-timeout">
+                                        {t('form.nonStreamTimeout')}
+                                        <FieldHelp text={t('form.nonStreamTimeoutHint')} />
+                                    </FieldLabel>
+                                    <Input
+                                        id="group-non-stream-timeout"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={1}
+                                        step={1}
+                                        value={String(relayConfig.member_non_stream_response_timeout_seconds)}
+                                        onChange={(event) => {
+                                            const value = Number.parseInt(event.target.value, 10);
+                                            setRelayConfig((prev) => ({ ...prev, member_non_stream_response_timeout_seconds: Number.isFinite(value) && value >= 1 ? value : 1 }));
+                                        }}
+                                        className="rounded-xl"
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="group-stream-timeout">
+                                        {t('form.streamTimeout')}
+                                        <FieldHelp text={t('form.streamTimeoutHint')} />
+                                    </FieldLabel>
+                                    <Input
+                                        id="group-stream-timeout"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={1}
+                                        step={1}
+                                        value={String(relayConfig.member_stream_first_event_timeout_seconds)}
+                                        onChange={(event) => {
+                                            const value = Number.parseInt(event.target.value, 10);
+                                            setRelayConfig((prev) => ({ ...prev, member_stream_first_event_timeout_seconds: Number.isFinite(value) && value >= 1 ? value : 1 }));
+                                        }}
+                                        className="rounded-xl"
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="group-cooldown">
+                                        {t('form.cooldown')}
+                                        <FieldHelp text={t('form.cooldownHint')} />
+                                    </FieldLabel>
+                                    <Input
+                                        id="group-cooldown"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={1}
+                                        step={1}
+                                        value={String(relayConfig.member_cooldown_seconds)}
+                                        onChange={(event) => {
+                                            const value = Number.parseInt(event.target.value, 10);
+                                            setRelayConfig((prev) => ({ ...prev, member_cooldown_seconds: Number.isFinite(value) && value >= 1 ? value : 1 }));
+                                        }}
+                                        className="rounded-xl"
+                                    />
+                                </Field>
+                                <Field>
+                                    <FieldLabel htmlFor="group-affinity">
+                                        {t('form.affinity')}
+                                        <FieldHelp text={t('form.affinityHint')} />
+                                    </FieldLabel>
+                                    <Input
+                                        id="group-affinity"
+                                        type="number"
+                                        inputMode="numeric"
+                                        min={0}
+                                        step={1}
+                                        value={String(relayConfig.member_affinity_seconds)}
+                                        onChange={(event) => {
+                                            const value = Number.parseInt(event.target.value, 10);
+                                            setRelayConfig((prev) => ({ ...prev, member_affinity_seconds: Number.isFinite(value) && value >= 0 ? value : 0 }));
+                                        }}
+                                        className="rounded-xl"
+                                    />
+                                </Field>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </FieldGroup>
             </div>
 

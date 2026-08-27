@@ -3,7 +3,6 @@ package migrate
 import (
 	"fmt"
 
-	"github.com/bestruirui/octopus/internal/model"
 	"github.com/looplj/axonhub/llm"
 	"gorm.io/gorm"
 )
@@ -54,20 +53,14 @@ SET %s = CASE %s
 	WHEN '3' THEN ?
 	WHEN '4' THEN ?
 	WHEN '5' THEN ?
-	WHEN '6' THEN ?
-	WHEN '7' THEN ?
-	WHEN '8' THEN ?
 	ELSE %s
 END
 `, typeColumn, typeExpr, typeColumn), llm.APIFormatOpenAIChatCompletion.String(),
 		llm.APIFormatOpenAIResponse.String(),
 		llm.APIFormatAnthropicMessage.String(),
 		llm.APIFormatGeminiContents.String(),
-		model.ChannelTypeDoubao.String(),
-		llm.APIFormatOpenAIEmbedding.String(),
-		model.ChannelTypeGithubCopilot.String(),
-		model.ChannelTypeAntigravity.String(),
-		model.ChannelTypeZen.String()).Error; err != nil {
+		"doubao",
+		llm.APIFormatOpenAIEmbedding.String()).Error; err != nil {
 		return fmt.Errorf("failed to migrate channels.type: %w", err)
 	}
 	return nil
